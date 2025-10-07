@@ -1,8 +1,11 @@
 """Tracing scaffold (OpenTelemetry friendly)."""
+
 from __future__ import annotations
+
+import time
 from contextlib import asynccontextmanager
 from typing import Any
-import time
+
 
 class DummyTracer:
     @asynccontextmanager
@@ -13,10 +16,13 @@ class DummyTracer:
         finally:
             _ = time.time() - start
 
+
 _tracer: DummyTracer = DummyTracer()
+
 
 def get_tracer() -> DummyTracer:
     return _tracer
+
 
 def set_tracer(t: DummyTracer) -> None:
     global _tracer

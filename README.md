@@ -2,6 +2,8 @@
 
 # auto-workflow
 
+[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://stoiandl.github.io/auto-workflow/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 _A lightweight, zero-bloat, developer‑first workflow & task orchestration engine for Python._
 
 **Status:** Early design / scaffolding phase (APIs stabilizing). **Goal:** Production‑grade minimal core with pluggable power features.
@@ -427,4 +429,3 @@ This project is experimental; do not deploy to critical production paths until a
 ---
 
 Happy orchestrating! 🚀
-

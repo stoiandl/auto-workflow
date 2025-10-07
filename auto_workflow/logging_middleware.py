@@ -1,19 +1,24 @@
 """Structured logging middleware for tasks."""
+
 from __future__ import annotations
-import time, json, logging
-from typing import Any, Dict
+
+import json
+import logging
+import time
+from contextlib import suppress
+from typing import Any
+
 from .context import get_context
 
 logger = logging.getLogger("auto_workflow.tasks")
 
+
 async def structured_logging_middleware(nxt, task_def, args, kwargs):
     ctx = None
-    try:
+    with suppress(Exception):  # outside flow safe
         ctx = get_context()
-    except Exception:  # outside flow
-        pass
     start = time.time()
-    meta: Dict[str, Any] = {
+    meta: dict[str, Any] = {
         "task": task_def.name,
         "run_id": getattr(ctx, "run_id", None),
         "flow": getattr(ctx, "flow_name", None),

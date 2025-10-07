@@ -1,15 +1,20 @@
 """Lightweight event bus."""
-from __future__ import annotations
-from typing import Callable, Dict, List, Any
-import logging
 
-_subscribers: Dict[str, List[Callable[[Dict[str, Any]], None]]] = {}
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from typing import Any
+
+_subscribers: dict[str, list[Callable[[dict[str, Any]], None]]] = {}
 logger = logging.getLogger("auto_workflow.events")
 
-def subscribe(event: str, callback: Callable[[Dict[str, Any]], None]) -> None:
+
+def subscribe(event: str, callback: Callable[[dict[str, Any]], None]) -> None:
     _subscribers.setdefault(event, []).append(callback)
 
-def emit(event: str, payload: Dict[str, Any]) -> None:
+
+def emit(event: str, payload: dict[str, Any]) -> None:
     for cb in _subscribers.get(event, []):
         try:
             cb(payload)

@@ -1,24 +1,25 @@
 """Simple topological scheduler executing TaskInvocations respecting dependencies."""
+
 from __future__ import annotations
+
 import asyncio
 import time
-from typing import Dict, Any, Iterable, List
+from typing import Any
 
-from .dag import DAG
-from .exceptions import TaskExecutionError, AggregateTaskError
-from .build import TaskInvocation, current_build_context
-from .task import TaskDefinition
-from .events import emit
-from .artifacts import get_store, ArtifactRef
-from .metrics_provider import get_metrics_provider
+from .artifacts import get_store
+from .build import TaskInvocation
 from .cache import get_result_cache
+from .dag import DAG
+from .events import emit
+from .exceptions import AggregateTaskError, TaskExecutionError
+from .metrics_provider import get_metrics_provider
 from .middleware import get_task_middleware_chain
 from .tracing import get_tracer
 
 
 class InMemoryResultCache:
     def __init__(self) -> None:
-        self._store: Dict[str, tuple[float, Any]] = {}
+        self._store: dict[str, tuple[float, Any]] = {}
 
     def get(self, key: str, ttl: int | None) -> Any | None:
         if ttl is None:
@@ -41,9 +42,14 @@ class FailurePolicy:
     AGGREGATE = "aggregate"
 
 
-async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str = FailurePolicy.FAIL_FAST,
-                      max_concurrency: int | None = None, cancel_event: asyncio.Event | None = None,
-                      dynamic_roots: list[Any] | None = None) -> Dict[str, Any]:
+async def execute_dag(
+    invocations: list[TaskInvocation],
+    *,
+    failure_policy: str = FailurePolicy.FAIL_FAST,
+    max_concurrency: int | None = None,
+    cancel_event: asyncio.Event | None = None,
+    dynamic_roots: list[Any] | None = None,
+) -> dict[str, Any]:
     dag = DAG()
     for inv in invocations:
         dag.add_node(inv.name)
@@ -51,16 +57,20 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
             dag.add_edge(up, inv.name)
     order = dag.topological_sort()
     inv_map = {inv.name: inv for inv in invocations}
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     cache = get_result_cache()
     # simple ready set processing
     remaining_deps = {name: set(inv_map[name].upstream) for name in order}
     ready = [n for n, deps in remaining_deps.items() if not deps]
-    running: set[str] = set()
-    pending_tasks: Dict[str, asyncio.Task[Any]] = {}
+    # removed unused 'running' variable
+    pending_tasks: dict[str, asyncio.Task[Any]] = {}
 
     sem = asyncio.Semaphore(max_concurrency or len(order))
     task_errors: list[TaskExecutionError] = []
+
+    # For tasks with cache_ttl we may have multiple identical invocations ready simultaneously
+    # (e.g., synchronous functions now offloaded to threads). Use an in-flight map to deduplicate.
+    inflight: dict[str, asyncio.Future[Any]] = {}
 
     async def schedule(name: str) -> None:
         inv = inv_map[name]
@@ -70,20 +80,37 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
         # caching (per task definition attributes)
         cache_ttl = getattr(inv.definition, "cache_ttl", None)
         cache_key = inv.definition.cache_key(*resolved_args, **resolved_kwargs)
-        cached = cache.get(cache_key, cache_ttl)
-        if cached is not None:
-            results[name] = cached
-            return
+        if cache_ttl is not None:
+            cached = cache.get(cache_key, cache_ttl)
+            if cached is not None:
+                results[name] = cached
+                return
+            # Dedup: if another identical task already running, await its future
+            existing = inflight.get(cache_key)
+            if existing is not None:
+                try:
+                    value = await existing
+                except Exception as e:  # propagate underlying failure
+                    raise e
+                results[name] = value
+                return
         try:
             emit("task_started", {"task": inv.task_name, "node": name})
             start = time.time()
             async with sem:
                 tracer = get_tracer()
                 async with tracer.span(f"task:{inv.task_name}", node=name):
+
                     async def core_run():
                         return await inv.definition.run(*resolved_args, **resolved_kwargs)
-                    # apply middleware chain
-                    value = await get_task_middleware_chain()(core_run, inv.definition, resolved_args, resolved_kwargs)
+
+                    # apply middleware chain (wrap before marking inflight for accuracy)
+                    if cache_ttl is not None and cache_key not in inflight:
+                        # register future placeholder before execution so followers can await
+                        inflight[cache_key] = asyncio.get_running_loop().create_future()
+                    value = await get_task_middleware_chain()(
+                        core_run, inv.definition, resolved_args, resolved_kwargs
+                    )
             duration = time.time() - start
             # artifact persistence if requested
             if getattr(inv.definition, "persist", False):
@@ -91,21 +118,33 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
                 ref = store.put(value)
                 value = ref
             results[name] = value
-            if cache_ttl:
+            if cache_ttl is not None:
                 cache.set(cache_key, value)
-            emit("task_succeeded", {"task": inv.task_name, "node": name, "duration_ms": duration * 1000.0})
+                fut = inflight.get(cache_key)
+                if fut and not fut.done():
+                    fut.set_result(value)
+                inflight.pop(cache_key, None)
+            emit(
+                "task_succeeded",
+                {"task": inv.task_name, "node": name, "duration_ms": duration * 1000.0},
+            )
             mp = get_metrics_provider()
             mp.inc("tasks_succeeded")
             mp.observe("task_duration_ms", duration * 1000.0)
         except Exception as e:  # noqa: BLE001
             te = TaskExecutionError(inv.task_name, e)
+            if cache_ttl is not None:
+                fut = inflight.get(cache_key)
+                if fut and not fut.done():
+                    fut.set_exception(e)
+                inflight.pop(cache_key, None)
             if failure_policy == FailurePolicy.FAIL_FAST:
                 emit("task_failed", {"task": inv.task_name, "node": name, "error": repr(e)})
                 # record failure result so downstream inspection doesn't KeyError before propagation
                 results[name] = te
                 mp = get_metrics_provider()
                 mp.inc("tasks_failed")
-                raise te
+                raise te from None
             task_errors.append(te)
             results[name] = te
             emit("task_failed", {"task": inv.task_name, "node": name, "error": repr(e)})
@@ -114,7 +153,8 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
 
     # Map consumer invocation name -> list of DynamicFanOut placeholders it references
     from .fanout import DynamicFanOut
-    consumer_placeholders: Dict[str, list[DynamicFanOut]] = {}
+
+    consumer_placeholders: dict[str, list[DynamicFanOut]] = {}
     all_placeholders: list[DynamicFanOut] = []
     if dynamic_roots:
         for p in dynamic_roots:
@@ -149,8 +189,13 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
                 continue
             runnable.append(node)
         # Enforce priority ordering (higher priority scheduled first)
-        runnable.sort(key=lambda n: getattr(inv_map[n].definition, 'priority', 0), reverse=True)
+        runnable.sort(key=lambda n: getattr(inv_map[n].definition, "priority", 0), reverse=True)
         for node in runnable:
+            # Skip if already scheduled (defensive against accidental duplicates in ready)
+            if node in pending_tasks:
+                # Remove duplicate occurrence
+                ready.remove(node)
+                continue
             ready.remove(node)
             pending_tasks[node] = asyncio.create_task(schedule(node))
         if not pending_tasks:
@@ -164,6 +209,7 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
                 raise exc
             # After task success, check if any dynamic fan-outs depend on it
             from .fanout import DynamicFanOut
+
             # Evaluate expansion conditions for all placeholders (supports nesting)
             for placeholder in list(all_placeholders):
                 if placeholder._expanded:
@@ -173,17 +219,24 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
                 if isinstance(src, TaskInvocation) and src.name == fname:
                     ready_to_expand = True
                 else:
-                    # Nested: source is another placeholder; expand when all its children have results
-                    if isinstance(src, DynamicFanOut) and src._expanded and all(child.name in results for child in src):
+                    # Nested: expand when all children have results
+                    if (
+                        isinstance(src, DynamicFanOut)
+                        and src._expanded
+                        and all(child.name in results for child in src)
+                    ):
                         ready_to_expand = True
                 if ready_to_expand:
-                    # Derive source value: for nested placeholder we collect each child result into a list
+                    # Derive nested source value: collect each child result into a list
                     if isinstance(src, TaskInvocation):
                         source_value = results[src.name]
                     else:
                         source_value = [results[c.name] for c in src]
                     if not isinstance(source_value, (list, tuple, set)):
-                        raise TaskExecutionError(getattr(src, 'task_name', 'dynamic'), RuntimeError("Dynamic fan_out source must return an iterable"))
+                        raise TaskExecutionError(
+                            getattr(src, "task_name", "dynamic"),
+                            RuntimeError("Dynamic fan_out source must return an iterable"),
+                        )
                     placeholder.expand(source_value)
                     for child_inv in placeholder:
                         if child_inv.name not in dag.nodes:
@@ -199,7 +252,7 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
                             deps = {c.name for c in src}
                             for d in deps:
                                 dag.add_edge(d, child_inv.name)
-                            # All deps already completed (by readiness condition), so mark none remaining
+                            # All deps completed (readiness condition); mark none remaining
                             remaining_deps[child_inv.name] = set()
                             ready.append(child_inv.name)
                         # ensure inv_map aware
@@ -210,43 +263,59 @@ async def execute_dag(invocations: List[TaskInvocation], *, failure_policy: str 
                         if consumer is src:
                             continue
                         replaced = False
-                        def _walk(o):
+
+                        def _walk(o, target=placeholder):  # bind loop var
                             nonlocal replaced
-                            if o is placeholder:
+                            if o is target:
                                 replaced = True
-                                return list(placeholder)
+                                return list(target)
                             if isinstance(o, list):
-                                return [_walk(x) for x in o]
+                                return [_walk(x, target) for x in o]
                             if isinstance(o, tuple):
-                                return tuple(_walk(x) for x in o)
+                                return tuple(_walk(x, target) for x in o)
                             if isinstance(o, dict):
-                                return {k: _walk(v) for k, v in o.items()}
+                                return {k: _walk(v, target) for k, v in o.items()}
                             return o
-                        consumer.args = _walk(list(consumer.args)) if consumer.args else consumer.args
-                        consumer.kwargs = _walk(consumer.kwargs) if consumer.kwargs else consumer.kwargs
+
+                        consumer.args = (
+                            _walk(list(consumer.args)) if consumer.args else consumer.args
+                        )
+                        consumer.kwargs = (
+                            _walk(consumer.kwargs) if consumer.kwargs else consumer.kwargs
+                        )
                         if replaced:
                             for child_inv in placeholder:
                                 dag.add_edge(child_inv.name, consumer.name)
                                 remaining_deps.setdefault(consumer.name, set()).add(child_inv.name)
                     # Placeholders remain for nested detection; do not delete
             # update downstream readiness
-            for child in dag.nodes[fname].downstream:
+            # Use set() to guard against duplicate edges causing repeated scheduling attempts
+            for child in set(dag.nodes[fname].downstream):
                 remaining_deps[child].discard(fname)
                 # Skip scheduling if any upstream failed and policy is not CONTINUE
-                upstream_failed = any(isinstance(results.get(up), TaskExecutionError) for up in dag.nodes[child].upstream if up in results)
+                upstream_failed = any(
+                    isinstance(results.get(up), TaskExecutionError)
+                    for up in dag.nodes[child].upstream
+                    if up in results
+                )
                 if upstream_failed and failure_policy != FailurePolicy.CONTINUE:
-                    # Propagate failure placeholder
                     results[child] = TaskExecutionError(child, RuntimeError("Upstream failed"))
                     continue
-                if not remaining_deps[child]:
+                if (
+                    not remaining_deps[child]
+                    and child not in ready
+                    and child not in pending_tasks
+                    and child not in results
+                ):
                     ready.append(child)
     if failure_policy == FailurePolicy.AGGREGATE and task_errors:
         raise AggregateTaskError(task_errors)
     return results
 
 
-def _hydrate(struct: Any, results: Dict[str, Any]) -> Any:
+def _hydrate(struct: Any, results: dict[str, Any]) -> Any:
     from .build import TaskInvocation
+
     if isinstance(struct, TaskInvocation):
         return results[struct.name]
     if isinstance(struct, list):

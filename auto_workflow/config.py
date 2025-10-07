@@ -1,11 +1,13 @@
 """Configuration loading from pyproject.toml (best-effort)."""
+
 from __future__ import annotations
+
 import tomllib
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-DEFAULTS: Dict[str, Any] = {
+DEFAULTS: dict[str, Any] = {
     "default_executor": "async",
     "log_level": "INFO",
     "max_dynamic_tasks": 2048,
@@ -17,10 +19,10 @@ DEFAULTS: Dict[str, Any] = {
 
 
 @lru_cache(maxsize=1)
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     pyproject = root / "pyproject.toml"
-    data: Dict[str, Any] = {}
+    data: dict[str, Any] = {}
     if pyproject.exists():
         try:
             with pyproject.open("rb") as f:
@@ -33,6 +35,7 @@ def load_config() -> Dict[str, Any]:
     merged = {**DEFAULTS, **data}
     # env overrides
     import os
+
     for k in list(merged.keys()):
         env_key = f"AUTO_WORKFLOW_{k.upper()}"
         if env_key in os.environ:
@@ -40,6 +43,6 @@ def load_config() -> Dict[str, Any]:
     return merged
 
 
-def reload_config() -> Dict[str, Any]:  # pragma: no cover - used in tests
+def reload_config() -> dict[str, Any]:  # pragma: no cover - used in tests
     load_config.cache_clear()  # type: ignore
     return load_config()

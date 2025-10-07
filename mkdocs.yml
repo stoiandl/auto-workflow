@@ -1,7 +1,7 @@
 site_name: auto-workflow
-site_url: https://andreistoica.github.io/auto-workflow/
-repo_url: https://github.com/andreistoica/auto-workflow
-repo_name: andreistoica/auto-workflow
+site_url: https://stoiandl.github.io/auto-workflow/
+repo_url: https://github.com/stoiandl/auto-workflow
+repo_name: stoiandl/auto-workflow
 edit_uri: blob/main/docs/
 theme:
     name: material
@@ -14,9 +14,9 @@ theme:
         - search.highlight
         - content.code.copy
     palette:
-      - scheme: default
-        primary: indigo
-        accent: indigo
+        - scheme: default
+          primary: indigo
+          accent: indigo
     icon:
         repo: fontawesome/brands/github
 nav:
@@ -41,12 +41,12 @@ nav:
   - Examples: examples.md
   - API Reference: api-reference.md
 markdown_extensions:
-  - toc:
-      permalink: true
-  - admonition
-  - codehilite
-  - tables
-  - fenced_code
+    - toc:
+            permalink: true
+    - admonition
+    - codehilite
+    - tables
+    - fenced_code
     - footnotes
     - def_list
     - attr_list
@@ -61,6 +61,6 @@ plugins:
     #           docstring_style: google
 extra:
     social:
-      - icon: fontawesome/brands/github
-        link: https://github.com/andreistoica/auto-workflow
-        name: Source on GitHub
+        - icon: fontawesome/brands/github
+          link: https://github.com/stoiandl/auto-workflow
+          name: Source on GitHub

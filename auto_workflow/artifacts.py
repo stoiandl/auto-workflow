@@ -1,11 +1,14 @@
 """Artifact storage abstraction (MVP in-memory)."""
+
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Any, Dict
+
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
-import json
+from typing import Any
+
 from .config import load_config
+
 
 @dataclass(slots=True)
 class ArtifactRef:
@@ -14,7 +17,7 @@ class ArtifactRef:
 
 class InMemoryArtifactStore:
     def __init__(self) -> None:
-        self._store: Dict[str, Any] = {}
+        self._store: dict[str, Any] = {}
 
     def put(self, value: Any) -> ArtifactRef:
         key = str(uuid.uuid4())
@@ -24,7 +27,9 @@ class InMemoryArtifactStore:
     def get(self, ref: ArtifactRef) -> Any:
         return self._store[ref.key]
 
+
 _STORE = InMemoryArtifactStore()
+
 
 def get_store() -> InMemoryArtifactStore:
     cfg = load_config()
@@ -48,6 +53,7 @@ class FileSystemArtifactStore(InMemoryArtifactStore):  # simple extension
         path = self.root / ref.key
         with path.open("wb") as f:
             import pickle
+
             pickle.dump(value, f)
         return ref
 
@@ -55,6 +61,7 @@ class FileSystemArtifactStore(InMemoryArtifactStore):  # simple extension
         path = self.root / ref.key
         if path.exists():
             import pickle
+
             with path.open("rb") as f:
                 return pickle.load(f)
         return super().get(ref)

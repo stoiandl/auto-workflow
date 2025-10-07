@@ -1,13 +1,20 @@
-from auto_workflow import task, flow, fan_out
+from auto_workflow import fan_out, flow, task
+
 
 @task
-def nums(): return [1,2,3]
+def nums():
+    return [1, 2, 3]
+
 
 @task(priority=5)
-def square(x): return x*x
+def square(x):
+    return x * x
+
 
 @task(priority=0)
-def aggregate(xs): return sum(xs)
+def aggregate(xs):
+    return sum(xs)
+
 
 @flow
 def dyn_priority_flow():
@@ -15,6 +22,7 @@ def dyn_priority_flow():
     squares = fan_out(square, values)
     total = aggregate(squares)
     return total
+
 
 def test_dynamic_priority_interplay():
     assert dyn_priority_flow.run() == 14

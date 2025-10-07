@@ -1,13 +1,14 @@
 """CLI entry points."""
+
 from __future__ import annotations
+
 import argparse
 import importlib
-import sys
-import pkgutil
 import json
-from typing import Any
-from .middleware import register
+
 from .logging_middleware import structured_logging_middleware
+from .middleware import register
+
 
 def load_flow(dotted: str):
     if ":" not in dotted:
@@ -16,6 +17,7 @@ def load_flow(dotted: str):
     mod = importlib.import_module(mod_name)
     flow_obj = getattr(mod, attr)
     return flow_obj
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser("auto-workflow")
@@ -41,7 +43,12 @@ def main(argv: list[str] | None = None) -> int:
             register(structured_logging_middleware)
         params = json.loads(ns.params) if ns.params else None
         flow_obj = load_flow(ns.flow)
-        result = flow_obj.run(executor=ns.executor, failure_policy=ns.failure_policy, max_concurrency=ns.max_concurrency, params=params)
+        result = flow_obj.run(
+            executor=ns.executor,
+            failure_policy=ns.failure_policy,
+            max_concurrency=ns.max_concurrency,
+            params=params,
+        )
         print(result)
         return 0
     if ns.cmd == "describe":
@@ -55,11 +62,13 @@ def main(argv: list[str] | None = None) -> int:
         out = {}
         for name, obj in vars(mod).items():
             from auto_workflow.flow import Flow
+
             if isinstance(obj, Flow):
                 out[name] = obj.describe()["count"]
         print(json.dumps(out, indent=2))
         return 0
     return 1
+
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

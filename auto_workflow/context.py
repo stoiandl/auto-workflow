@@ -1,20 +1,24 @@
 """Execution context handling."""
+
 from __future__ import annotations
+
+import logging
+import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
-import time
-import logging
+from typing import Any
+
 
 @dataclass(slots=True)
 class RunContext:
     run_id: str
     flow_name: str
     start_time: float = field(default_factory=time.time)
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("auto_workflow"))
 
-_current_context: ContextVar[Optional[RunContext]] = ContextVar("auto_workflow_run_ctx", default=None)
+
+_current_context: ContextVar[RunContext | None] = ContextVar("auto_workflow_run_ctx", default=None)
 
 
 def set_context(ctx: RunContext) -> None:

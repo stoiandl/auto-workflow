@@ -1,12 +1,14 @@
 """Graph build structures: TaskInvocation & BuildContext."""
+
 from __future__ import annotations
-from dataclasses import dataclass, field
-from contextvars import ContextVar
-from typing import Any, Dict, List, Iterator, Iterable
+
 import itertools
+from collections.abc import Iterator
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from typing import Any
 
-
-_build_ctx: ContextVar["BuildContext | None"] = ContextVar("aw_build_ctx", default=None)
+_build_ctx: ContextVar[BuildContext | None] = ContextVar("aw_build_ctx", default=None)
 
 
 @dataclass(slots=True)
@@ -15,7 +17,7 @@ class TaskInvocation:
     task_name: str
     fn: Any
     args: tuple[Any, ...]
-    kwargs: Dict[str, Any]
+    kwargs: dict[str, Any]
     definition: Any  # TaskDefinition (forward ref avoided)
     upstream: set[str] = field(default_factory=set)
 
@@ -28,8 +30,8 @@ class TaskInvocation:
 
 class BuildContext:
     def __init__(self) -> None:
-        self.invocations: Dict[str, TaskInvocation] = {}
-        self._counters: Dict[str, itertools.count] = {}
+        self.invocations: dict[str, TaskInvocation] = {}
+        self._counters: dict[str, itertools.count] = {}
         self.dynamic_fanouts: list[Any] = []  # populated by fan_out for root placeholders
 
     def _next_id(self, task_name: str) -> str:
@@ -38,15 +40,25 @@ class BuildContext:
         idx = next(self._counters[task_name])
         return f"{task_name}:{idx}"
 
-    def register(self, task_name: str, fn: Any, args: tuple[Any, ...], kwargs: Dict[str, Any], definition: Any) -> TaskInvocation:
+    def register(
+        self,
+        task_name: str,
+        fn: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        definition: Any,
+    ) -> TaskInvocation:
         name = self._next_id(task_name)
-        inv = TaskInvocation(name=name, task_name=task_name, fn=fn, args=args, kwargs=kwargs, definition=definition)
+        inv = TaskInvocation(
+            name=name, task_name=task_name, fn=fn, args=args, kwargs=kwargs, definition=definition
+        )
         # Determine upstream dependencies by scanning args/kwargs
         for dep in iter_invocations((args, kwargs)):
             inv.upstream.add(dep.name)
         # Dynamic fan-out placeholder detection
         try:  # local import to avoid circular
             from .fanout import DynamicFanOut  # type: ignore
+
             def _scan(obj):
                 if isinstance(obj, DynamicFanOut):
                     inv.upstream.add(obj._source.name)
@@ -56,6 +68,7 @@ class BuildContext:
                 elif isinstance(obj, dict):
                     for v in obj.values():
                         _scan(v)
+
             _scan(args)
             _scan(kwargs)
         except Exception:  # pragma: no cover
@@ -87,6 +100,7 @@ def iter_invocations(obj: Any) -> Iterator[TaskInvocation]:
     # Dynamic fan-out placeholder
     try:
         from .fanout import DynamicFanOut  # type: ignore
+
         if isinstance(obj, DynamicFanOut):
             yield from iter_invocations(obj._source)
             for child in obj:
@@ -114,7 +128,7 @@ def iter_invocations(obj: Any) -> Iterator[TaskInvocation]:
     return
 
 
-def replace_invocations(struct: Any, results: Dict[str, Any]) -> Any:
+def replace_invocations(struct: Any, results: dict[str, Any]) -> Any:
     if isinstance(struct, TaskInvocation):
         return results[struct.name]
     if isinstance(struct, list):
@@ -124,12 +138,15 @@ def replace_invocations(struct: Any, results: Dict[str, Any]) -> Any:
     if isinstance(struct, set):
         return {replace_invocations(s, results) for s in struct}
     if isinstance(struct, dict):
-        return {replace_invocations(k, results): replace_invocations(v, results) for k, v in struct.items()}
+        return {
+            replace_invocations(k, results): replace_invocations(v, results)
+            for k, v in struct.items()
+        }
     return struct
 
 
-def collect_invocations(struct: Any) -> List[TaskInvocation]:
-    seen: Dict[str, TaskInvocation] = {}
+def collect_invocations(struct: Any) -> list[TaskInvocation]:
+    seen: dict[str, TaskInvocation] = {}
     for inv in iter_invocations(struct):
         seen[inv.name] = inv
     return list(seen.values())

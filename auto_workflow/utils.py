@@ -1,11 +1,16 @@
 """Utility helpers."""
+
 from __future__ import annotations
-import inspect
-import hashlib
+
 import asyncio
-from typing import Any, Callable
+import functools
+import hashlib
+import inspect
+from collections.abc import Callable
+from typing import Any
 
 _DEF_HASH_SALT = b"auto_workflow:v1"
+
 
 def default_cache_key(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
     try:
@@ -18,14 +23,17 @@ def default_cache_key(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dic
     digest = hashlib.sha256(_DEF_HASH_SALT + key_source.encode()).hexdigest()
     return digest
 
+
 def is_coroutine_fn(fn: Callable[..., Any]) -> bool:
     while isinstance(fn, functools.partial):  # type: ignore
         fn = fn.func  # type: ignore
     return asyncio.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
+
 
 async def maybe_await(value: Any) -> Any:
     if inspect.isawaitable(value):
         return await value
     return value
 
-import functools  # placed after functions to avoid circular in is_coroutine_fn
+
+__all__ = ["default_cache_key", "is_coroutine_fn", "maybe_await"]

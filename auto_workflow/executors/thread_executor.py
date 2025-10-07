@@ -1,14 +1,18 @@
 """ThreadPool executor implementation."""
+
 from __future__ import annotations
+
 import asyncio
-from concurrent.futures import ThreadPoolExecutor as _TPE
-from typing import Any, Callable
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
+
 from .base import BaseExecutor
 
 
 class ThreadExecutor(BaseExecutor):
     def __init__(self, max_workers: int | None = None) -> None:
-        self._pool = _TPE(max_workers=max_workers)
+        self._pool = ThreadPoolExecutor(max_workers=max_workers)
         self._loop = asyncio.get_event_loop()
 
     async def submit(self, node_id: str, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

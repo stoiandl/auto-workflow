@@ -1,18 +1,23 @@
 """Internal DAG representation and cycle detection."""
+
 from __future__ import annotations
+
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Dict, List, Set, Iterable
+
 from .exceptions import CycleDetectedError
+
 
 @dataclass(slots=True)
 class Node:
     name: str
-    upstream: Set[str] = field(default_factory=set)
-    downstream: Set[str] = field(default_factory=set)
+    upstream: set[str] = field(default_factory=set)
+    downstream: set[str] = field(default_factory=set)
+
 
 class DAG:
     def __init__(self) -> None:
-        self.nodes: Dict[str, Node] = {}
+        self.nodes: dict[str, Node] = {}
 
     def add_node(self, name: str) -> None:
         if name not in self.nodes:
@@ -24,11 +29,11 @@ class DAG:
         self.nodes[upstream].downstream.add(downstream)
         self.nodes[downstream].upstream.add(upstream)
 
-    def topological_sort(self) -> List[str]:
+    def topological_sort(self) -> list[str]:
         # Kahn's algorithm
         in_degree = {n: len(node.upstream) for n, node in self.nodes.items()}
         ready = [n for n, d in in_degree.items() if d == 0]
-        order: List[str] = []
+        order: list[str] = []
         while ready:
             current = ready.pop()
             order.append(current)
@@ -65,4 +70,7 @@ class DAG:
         return "\n".join(lines)
 
     def to_dict(self) -> dict:
-        return {name: {"upstream": sorted(n.upstream), "downstream": sorted(n.downstream)} for name, n in self.nodes.items()}
+        return {
+            name: {"upstream": sorted(n.upstream), "downstream": sorted(n.downstream)}
+            for name, n in self.nodes.items()
+        }
