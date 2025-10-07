@@ -1,13 +1,15 @@
-import os
-import time
 import asyncio
 import inspect
-from auto_workflow import task, flow, FailurePolicy, fan_out
-from auto_workflow.secrets import set_secrets_provider, StaticMappingSecrets, secret
-from auto_workflow.config import reload_config
-from auto_workflow.tracing import set_tracer, get_tracer
-from auto_workflow.events import subscribe
+import os
+import time
+
+from auto_workflow import FailurePolicy, fan_out, flow, task
 from auto_workflow.artifacts import ArtifactRef, get_store
+from auto_workflow.config import reload_config
+from auto_workflow.events import subscribe
+from auto_workflow.exceptions import AggregateTaskError
+from auto_workflow.secrets import StaticMappingSecrets, secret, set_secrets_provider
+from auto_workflow.tracing import get_tracer, set_tracer
 
 # --- Auto executor inference tests ---
 
@@ -103,10 +105,14 @@ class RecordingTracer:
         self.spans = []
     class _SpanCtx:
         def __init__(self, outer, name, attrs):
-            self.outer = outer; self.name = name; self.attrs = attrs
+            self.outer = outer
+            self.name = name
+            self.attrs = attrs
+
         async def __aenter__(self):
             self.start = time.time()
             return {"name": self.name, **self.attrs}
+
         async def __aexit__(self, exc_type, exc, tb):
             self.outer.spans.append((self.name, self.attrs))
     def span(self, name: str, **attrs):  # async context manager interface
@@ -156,13 +162,11 @@ def aggregate_fail_flow():
     c = _ok()
     return a, b, c
 
-from auto_workflow.exceptions import AggregateTaskError
-
 def test_aggregate_failure_policy():
     # When using aggregate, we expect an AggregateTaskError capturing both failures
     try:
         aggregate_fail_flow.run(failure_policy=FailurePolicy.AGGREGATE)
-        assert False, "Should have raised AggregateTaskError"
+        raise AssertionError("Should have raised AggregateTaskError")
     except AggregateTaskError as e:
         msgs = repr(e)
         assert "_fail_one" in msgs and "_fail_two" in msgs

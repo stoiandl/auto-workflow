@@ -1,12 +1,17 @@
-import os, asyncio, time, random
-from auto_workflow import task, flow, fan_out, FailurePolicy
-from auto_workflow.artifacts import get_store, ArtifactRef
-from auto_workflow.secrets import set_secrets_provider, StaticMappingSecrets, secret
+import asyncio
+import os
+import random
+import time
+
+from auto_workflow import FailurePolicy, fan_out, flow, task
+from auto_workflow.artifacts import ArtifactRef, get_store
 from auto_workflow.config import reload_config
-from auto_workflow.middleware import register, clear
-from auto_workflow.metrics_provider import set_metrics_provider, InMemoryMetrics
-from auto_workflow.tracing import set_tracer
 from auto_workflow.exceptions import AggregateTaskError, TaskExecutionError
+from auto_workflow.metrics_provider import InMemoryMetrics, set_metrics_provider
+from auto_workflow.middleware import clear, register
+from auto_workflow.secrets import StaticMappingSecrets, secret, set_secrets_provider
+from auto_workflow.tracing import set_tracer
+
 
 # --- Stress dynamic fan-out (single-level) with variable batch sizes ---
 @task
@@ -56,12 +61,15 @@ def _ok(): return 7
 
 @flow
 def aggregate_two_fail():
-    a = _boom1(); b = _boom2(); c = _ok(); return a,b,c
+    a = _boom1()
+    b = _boom2()
+    c = _ok()
+    return a, b, c
 
 def test_aggregate_policy_collects():
     try:
         aggregate_two_fail.run(failure_policy=FailurePolicy.AGGREGATE)
-        assert False, "expected AggregateTaskError"
+        raise AssertionError("expected AggregateTaskError")
     except AggregateTaskError as e:
         rep = repr(e)
         assert "_boom1" in rep and "_boom2" in rep
@@ -74,7 +82,9 @@ async def _use_secret_async():
 
 @flow
 def secret_concurrent_flow():
-    a = _use_secret_async(); b = _use_secret_async(); return a,b
+    a = _use_secret_async()
+    b = _use_secret_async()
+    return a, b
 
 def test_secret_concurrent_reads():
     set_secrets_provider(StaticMappingSecrets({"TOKEN": "alpha"}))
@@ -84,7 +94,8 @@ def test_secret_concurrent_reads():
     out2 = secret_concurrent_flow.run()
     assert out2 == ("beta", "beta")
 
-# --- Priority stability: equal priority tasks should still all run, order not enforced but no duplication ---
+# --- Priority stability: equal priority tasks should still all run.
+# Order not enforced but ensure no duplication.
 @task(priority=5)
 def _prio_a(): return "A"
 @task(priority=5)
@@ -94,7 +105,10 @@ def _prio_c(): return "C"
 
 @flow
 def prio_equal_flow():
-    a = _prio_a(); b = _prio_b(); c = _prio_c(); return [a,b,c]
+    a = _prio_a()
+    b = _prio_b()
+    c = _prio_c()
+    return [a, b, c]
 
 def test_priority_equal_runs_all():
     out = prio_equal_flow.run()
@@ -114,7 +128,9 @@ def mw_flow():
     return _mw_task()
 
 def test_middleware_exception_resilience():
-    clear(); register(bad_mw); register(pass_mw)
+    clear()
+    register(bad_mw)
+    register(pass_mw)
     # Should still execute task despite mw failure (middleware_error emitted, chain continues)
     captured = []
     from auto_workflow.events import subscribe
@@ -123,7 +139,8 @@ def test_middleware_exception_resilience():
     assert out == 1
     assert captured and captured[0]["task"] == "_mw_task"
 
-# --- Config env numeric coercion for max_dynamic_tasks already tested; extend with non-digit fallback ---
+# --- Config env numeric coercion for max_dynamic_tasks already tested; extend
+# with non-digit fallback ---
 
 def test_env_override_non_digit(monkeypatch):  # type: ignore
     monkeypatch.setenv("AUTO_WORKFLOW_MAX_DYNAMIC_TASKS", "notanumber")
@@ -133,7 +150,8 @@ def test_env_override_non_digit(monkeypatch):  # type: ignore
 
 # --- Tracing replacement mid-run (flow span should use latest tracer) ---
 class RecordTracer:
-    def __init__(self): self.names=[]
+    def __init__(self):
+        self.names = []
     from contextlib import asynccontextmanager
     @asynccontextmanager
     async def span(self, name: str, **attrs):
@@ -150,11 +168,13 @@ def trace_replace_flow():
     return _trace_example()
 
 def test_tracer_replacement():
-    t = RecordTracer(); set_tracer(t)
+    t = RecordTracer()
+    set_tracer(t)
     assert trace_replace_flow.run() == 3
     assert any(n.startswith("task:_trace_example") for n in t.names)
 
-# --- Ensure run_in inference negative: explicitly forcing async on sync function preserves value ---
+# --- Ensure run_in inference negative: explicitly forcing async on sync
+# function preserves value ---
 @task(run_in="async")
 def _forced_async_sync(): return 5
 

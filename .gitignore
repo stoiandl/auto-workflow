@@ -296,3 +296,6 @@ benchmarks/.results/
 ################
 # Add project-specific ignore rules below this line.
 # -----------------------------------------------
+
+# Workflow runtime artifact store (generated at execution time, safe to ignore)
+.aw_artifacts/

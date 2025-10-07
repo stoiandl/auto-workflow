@@ -1,11 +1,17 @@
-import asyncio, time
-from auto_workflow import task, flow, FailurePolicy, fan_out
-from auto_workflow.metrics_provider import set_metrics_provider, InMemoryMetrics, get_metrics_provider
-from auto_workflow.middleware import register, clear
-from auto_workflow.secrets import set_secrets_provider, StaticMappingSecrets, secret
-from auto_workflow.artifacts import get_store, ArtifactRef
+import asyncio
+import time
+
+from auto_workflow import FailurePolicy, fan_out, flow, task
+from auto_workflow.artifacts import ArtifactRef, get_store
 from auto_workflow.config import reload_config
 from auto_workflow.exceptions import TaskExecutionError
+from auto_workflow.metrics_provider import (
+    InMemoryMetrics,
+    get_metrics_provider,
+    set_metrics_provider,
+)
+from auto_workflow.middleware import clear, register
+from auto_workflow.secrets import StaticMappingSecrets, secret, set_secrets_provider
 
 # --- Metrics correctness & middleware ordering ---
 order = []
@@ -89,7 +95,7 @@ def test_timeout_retries_exhausted():
     _attempts['n'] = 0
     try:
         timeout_flow.run()
-        assert False, 'Should timeout'
+        raise AssertionError('Should timeout')
     except Exception:
         # 1 initial + 2 retries = 3 attempts
         assert _attempts['n'] == 3
@@ -132,7 +138,9 @@ def _persist_cached():
     return {'value': _art_counter['n']}
 @flow
 def persist_reuse_flow():
-    a = _persist_cached(); b = _persist_cached(); return a,b
+    a = _persist_cached()
+    b = _persist_cached()
+    return a, b
 
 def test_persist_artifact_reuse_same_flow():
     _art_counter['n']=0
@@ -155,7 +163,8 @@ def secret_swap_flow():
 def test_secret_provider_swap_behavior():
     set_secrets_provider(StaticMappingSecrets({'TOKEN':'early'}))
     out = secret_swap_flow.run()
-    # Both invocations capture value at execution time (provider swap before second call). Accept either pattern but not None.
+    # Both invocations capture value at execution time (provider swap before
+    # second call). Accept either pattern but not None.
     assert out[0] in ('early','late') and out[1] in ('early','late')
 
 # --- Config reload leaves unrelated keys intact ---
