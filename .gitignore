@@ -1,0 +1,299 @@
+###############################
+# Global .gitignore (Comprehensive)
+# Project: auto-workflow
+# Purpose: Ignore transient, generated, cache, secret, OS, editor, and tooling artifacts.
+# NOTE: Review before pruning. Keep this curated instead of blindly expanding.
+###############################
+
+###############
+# 1. Python Core
+###############
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# In-place build dirs & packaging noise
+build/
+dist/
+wheelhouse/
+wheels/
+.eggs/
+*.egg-info/
+*.egg
+MANIFEST
+pip-wheel-metadata/
+
+# PyInstaller / py2exe / etc.
+*.manifest
+*.spec
+
+# C extensions build output
+*.o
+*.obj
+*.dll
+*.dylib
+*.a
+*.lib
+
+################
+# 2. Environments
+################
+# Local virtual environments
+.venv/
+venv/
+ENV/
+env/
+venv.bak/
+
+# pyenv / uv / asdf
+.python-version
+.uv/
+
+# Conda (local)
+.conda/
+conda-env/
+
+################
+# 3. Dependency / Tool Caches
+################
+.mypy_cache/
+.pyre/
+.pytype/
+.pdm-build/
+.pylint.d/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.pytest_cache/
+.dmypy.json
+.dmypy.json.*
+.ipynb_checkpoints/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.cache/
+pytestdebug.log
+
+# Ruff incremental state (already listed: .ruff_cache/)
+
+# Poetry will manage lock file (do NOT ignore poetry.lock)
+#poetry.lock  # Keep this tracked for reproducibility
+
+################
+# 4. Logs & Runtime Artifacts
+################
+*.log
+logs/
+log/
+debug.log
+*.out
+*.err
+
+# SQLite / local DBs
+*.sqlite3
+*.sqlite
+*.db
+*.db-journal
+
+# PID / profiling
+*.pid
+*.prof
+*.lprof
+*.profile
+*.pstats
+
+################
+# 5. Temporary & Scratch
+################
+*.tmp
+*.temp
+*.swp
+*.swo
+*.orig
+*.bak
+*.old
+*.rej
+*.diff
+*~
+
+# Patch / merge backup files
+*.orig.*
+
+################
+# 6. Secrets / Credentials (application examples)
+################
+# Environment files (keep an example template explicitly)
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Local credentials
+*.pem
+*.key
+*.crt
+*.der
+*.p12
+*.pfx
+*.csr
+*.asc
+
+################
+# 7. OS / Filesystem Noise
+################
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux / misc
+.nfs*
+
+################
+# 8. Editors / IDEs
+################
+# VS Code (allow recommended settings + extensions to be tracked optionally)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+!.vscode/tasks.example.json
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+out/
+
+# Other editors
+*.sublime-project
+*.sublime-workspace
+
+################
+# 9. Containers / Infra
+################
+# Docker
+.dockerignore
+Dockerfile.*.tmp
+
+# Podman / Buildah intermediate
+*.containerfile.tmp
+
+# Kubernetes local configs
+k8s-local/
+
+################
+# 10. Archives / Bundles
+################
+*.7z
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.tar.xz
+*.txz
+*.tar.zst
+*.rar
+*.gz
+*.bz2
+*.xz
+*.zst
+
+################
+# 11. Data Science / Notebooks / Models
+################
+# Jupyter checkpoints already ignored (.ipynb_checkpoints/)
+# Uncomment below if you want to ignore notebooks entirely:
+# *.ipynb
+
+# Large raw data staging areas
+data/raw/
+data/tmp/
+data/cache/
+
+# Model artifacts
+models/
+*.pt
+*.pth
+*.onnx
+*.h5
+*.joblib
+*.pkl
+
+# Experiment tracking (adjust if using MLflow etc.)
+mlruns/
+wandb/
+.tensorboard/
+
+################
+# 12. Frontend / Node (future-proof if JS tooling added)
+################
+node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+.bun/
+package-lock.json
+.pnp.*
+.DS_store
+
+################
+# 13. Documentation build
+################
+# Sphinx / MkDocs / pdoc
+_site/
+site/
+docs/_build/
+.docs_cache/
+
+################
+# 14. Images / Generated Media
+################
+# Thumbnails / optimization caches
+*.thumb.*
+.cache_thumb/
+
+################
+# 15. CI/CD Local Outputs
+################
+.ci-cache/
+.local-ci/
+
+################
+# 16. Misc Tooling
+################
+# pre-commit (user-level cache lives outside repo; but include just in case)
+.pre-commit-cache/
+.pre-commit-hooks.yaml
+
+# Coverage tools (already above) + alternative names
+cov_html/
+
+# Bandit report / security scans
+bandit*.json
+bandit*.xml
+
+# Benchmark outputs
+benchmarks/.results/
+
+################
+# 17. Application Specific (placeholder)
+################
+# Add project-specific ignore rules below this line.
+# -----------------------------------------------
+

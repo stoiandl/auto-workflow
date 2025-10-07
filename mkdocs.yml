@@ -1,0 +1,66 @@
+site_name: auto-workflow
+site_url: https://andreistoica.github.io/auto-workflow/
+repo_url: https://github.com/andreistoica/auto-workflow
+repo_name: andreistoica/auto-workflow
+edit_uri: blob/main/docs/
+theme:
+    name: material
+    features:
+        - navigation.expand
+        - navigation.instant
+        - navigation.sections
+        - navigation.top
+        - search.suggest
+        - search.highlight
+        - content.code.copy
+    palette:
+      - scheme: default
+        primary: indigo
+        accent: indigo
+    icon:
+        repo: fontawesome/brands/github
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Quickstart: quickstart.md
+  - Core Concepts:
+      - Tasks: concepts/tasks.md
+      - Flows: flows.md
+      - Dynamic Fan-Out: dynamic-fanout.md
+      - Retries & Failures: retries-timeouts-failure.md
+      - Priority & Cancellation: priority-cancellation.md
+  - Data & State:
+      - Caching & Artifacts: caching-artifacts.md
+      - Configuration: configuration.md
+      - Secrets: secrets.md
+  - Observability:
+      - Logging / Metrics / Tracing: observability.md
+      - Middleware & Events: middleware-events.md
+  - CLI: cli.md
+  - Extensibility: extensibility.md
+  - Examples: examples.md
+  - API Reference: api-reference.md
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - codehilite
+  - tables
+  - fenced_code
+    - footnotes
+    - def_list
+    - attr_list
+plugins:
+    - search
+    # Uncomment after installing mkdocstrings if you want auto API docs
+    # - mkdocstrings:
+    #     handlers:
+    #       python:
+    #         options:
+    #           show_root_heading: true
+    #           docstring_style: google
+extra:
+    social:
+      - icon: fontawesome/brands/github
+        link: https://github.com/andreistoica/auto-workflow
+        name: Source on GitHub

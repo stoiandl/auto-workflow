@@ -1,0 +1,66 @@
+[project]
+name = "auto-workflow"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "andreistoica",email = "andreilst@yahoo.ro"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cloudpickle>=3.0.0,<4.0.0",
+]
+
+# Optional: define optional dev dependency groups (PEP 735 draft style). If your tooling
+# doesn't yet support this, you can ignore. Pre-commit pins hook versions, so adding
+# ruff/pre-commit here is not strictly required.
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.3.0"  # Updated to latest
+ruff = "^0.14.0"       # Updated to latest
+pytest = "^8.3.0"
+pytest-asyncio = "^0.23.0"
+
+
+# Ruff configuration
+[tool.ruff]
+# Match your supported Python version
+target-version = "py312"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.format]
+# Use Ruff's formatter (compatible with Black style by default)
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "N",   # pep8-naming
+]
+ignore = [
+    # Add rule codes here to ignore globally
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["auto_workflow"]
+combine-as-imports = true
+
+[tool.ruff.lint.per-file-ignores]
+# Example: tests often allow unused imports or asserts
+"tests/**/*" = ["S101", "F401"]
+
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,26 @@
+# Pre-commit configuration with Ruff for linting & formatting
+# Install with:
+#   pip install pre-commit
+# Then activate hooks:
+#   pre-commit install
+# Run on all files:
+#   pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0  # Latest at time of update
+    hooks:
+      - id: ruff-check
+        name: ruff (lint)
+        args: ["--fix"]  # Remove --fix if you prefer manual fixes
+      - id: ruff-format
+        name: ruff (format)
+
+  # Optional: detect large files, merge conflicts, etc.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
