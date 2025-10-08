@@ -6,9 +6,12 @@ Demonstrates:
 - tagging tasks
 """
 from __future__ import annotations
+
 import asyncio
 import time
-from auto_workflow import task, flow
+
+from auto_workflow import flow, task
+
 
 @task(priority=1)
 async def low_latency_call():
@@ -29,7 +32,7 @@ async def mid_priority_call():
 def order_summary(results):
     # results are (label, timestamp)
     ordered = sorted(results, key=lambda x: x[1])
-    labels = [l for l, _ in ordered]
+    labels = [label for label, _ in ordered]
     return {"start_order": labels}
 
 @flow
