@@ -1,11 +1,10 @@
 import threading
 import time
-from typing import List, Tuple
 
 from auto_workflow import flow, task
+from auto_workflow.artifacts import ArtifactRef, get_store
 from auto_workflow.exceptions import TaskExecutionError
 from auto_workflow.secrets import StaticMappingSecrets, secret, set_secrets_provider
-from auto_workflow.artifacts import get_store, ArtifactRef
 
 MAIN_THREAD_ID = threading.get_ident()
 
@@ -20,7 +19,7 @@ def thread_id_flow():
     return _capture_thread_id()
 
 # --- Parallel overlap measurement ---
-_overlap_records: List[Tuple[float, float]] = []
+_overlap_records: list[tuple[float, float]] = []
 
 @task(run_in="thread")
 def _sleepy(idx: int, delay: float = 0.05) -> int:
