@@ -35,6 +35,7 @@ _A lightweight, zero-bloat, developer‑first workflow & task orchestration engi
 20. [Contributing](#contributing)
 21. [Versioning & Stability](#versioning--stability)
 22. [License](#license)
+ 23. [Examples Overview](#examples-overview)
 
 ---
 
@@ -397,6 +398,27 @@ docs/
 - [ ] External secrets providers (Vault, AWS SM)
 - [ ] UI prototype / visualization
 - [ ] Packaging & first PyPI release
+
+---
+
+## Examples Overview
+Explore runnable examples in `examples/` (also rendered in the online docs):
+
+| File | Concept Highlights |
+|------|--------------------|
+| `data_pipeline.py` | Basic ETL flow with persistence & simple mapping |
+| `concurrent_priority.py` | Priority scheduling & mixed async timings |
+| `dynamic_fanout.py` | Runtime fan-out expansion and aggregation |
+| `retries_timeouts.py` | Retry + timeout interplay demonstration |
+| `secrets_and_artifacts.py` | Secrets provider & artifact persistence usage |
+| `tracing_custom.py` | Custom tracer capturing spans & durations |
+
+Run any example:
+```bash
+python examples/tracing_custom.py
+```
+
+For more narrative documentation see the [Examples page](https://stoiandl.github.io/auto-workflow/examples/).
 
 ---
 

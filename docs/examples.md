@@ -76,3 +76,39 @@ def consume(ref):
     data = get_store().get(ref)
     return len(data)
 ```
+
+## Example: Custom Tracing
+```python
+from auto_workflow.tracing import set_tracer
+from contextlib import asynccontextmanager
+import time
+
+class RecordingTracer:
+    @asynccontextmanager
+    async def span(self, name: str, **attrs):
+        start = time.time()
+        try:
+            yield {"name": name, **attrs}
+        finally:
+            dur = (time.time() - start) * 1000.0
+            print(f"span {name} attrs={attrs} dur_ms={dur:.2f}")
+
+set_tracer(RecordingTracer())
+```
+
+## Example: Threaded Parallelism
+```python
+from auto_workflow import task, flow
+import time
+
+@task(run_in="thread")
+def slow(i: int):
+    time.sleep(0.05)
+    return i
+
+@flow
+def parallel():
+    return [slow(i) for i in range(4)]
+
+print(parallel.run())
+```

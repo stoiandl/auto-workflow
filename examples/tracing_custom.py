@@ -13,10 +13,11 @@ from __future__ import annotations
 import asyncio
 import time
 from contextlib import asynccontextmanager
-from typing import Any, List, Tuple
+from typing import Any
 
 from auto_workflow import flow, task
-from auto_workflow.tracing import set_tracer, get_tracer
+from auto_workflow.tracing import set_tracer
+
 
 # --- Custom tracer implementation ---
 class RecordingTracer:
@@ -27,7 +28,7 @@ class RecordingTracer:
     phase: 'start' or 'end'.
     """
     def __init__(self) -> None:
-        self.records: List[Tuple[str, str, dict[str, Any], float | None]] = []
+        self.records: list[tuple[str, str, dict[str, Any], float | None]] = []
 
     @asynccontextmanager
     async def span(self, name: str, **attrs: Any):  # type: ignore[override]
@@ -77,5 +78,9 @@ if __name__ == "__main__":
             print(f"  {phase:5} | {name:20} | attrs={attrs}")
 
     # Example: derive total time of task spans only
-    task_durations = [dur for phase, name, _, dur in rec.records if phase == 'end' and name.startswith('task:')]
+    task_durations = [
+        dur
+        for phase, name, _, dur in rec.records
+        if phase == 'end' and name.startswith('task:')
+    ]
     print(f"Total task time (ms): {sum(task_durations):.2f}")
