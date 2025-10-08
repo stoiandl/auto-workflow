@@ -5,10 +5,11 @@ Demonstrates:
 - persisting large result as artifact
 """
 from __future__ import annotations
-import os
-from auto_workflow import task, flow
-from auto_workflow.secrets import secret, set_secrets_provider, StaticMappingSecrets
+
+from auto_workflow import flow, task
 from auto_workflow.artifacts import get_store
+from auto_workflow.secrets import StaticMappingSecrets, secret, set_secrets_provider
+
 
 @task
 def read_api_key():

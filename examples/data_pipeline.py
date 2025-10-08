@@ -7,11 +7,12 @@ Demonstrates:
 - Retry + timeout + caching
 """
 from __future__ import annotations
+
 import random
 import time
 from typing import Any
 
-from auto_workflow import task, flow
+from auto_workflow import flow, task
 from auto_workflow.artifacts import get_store
 
 # --- Tasks ---

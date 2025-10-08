@@ -5,7 +5,9 @@ Demonstrates:
 - downstream aggregation waiting for dynamic expansion
 """
 from __future__ import annotations
-from auto_workflow import task, flow, fan_out
+
+from auto_workflow import fan_out, flow, task
+
 
 @task
 def produce_numbers(n: int = 5):

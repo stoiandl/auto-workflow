@@ -6,9 +6,11 @@ Demonstrates:
 - distinguishing success after transient failures
 """
 from __future__ import annotations
+
 import asyncio
 import random
-from auto_workflow import task, flow
+
+from auto_workflow import flow, task
 
 _attempts = {"n": 0}
 
