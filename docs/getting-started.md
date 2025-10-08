@@ -11,7 +11,7 @@ See [Quickstart](quickstart.md#installation-local-source-checkout) for local sou
 3. Skim [Dynamic Fan-Out](dynamic-fanout.md) for mapping patterns
 
 ## 3. Build Your First Flow
-Follow the minimal example in [Quickstart](quickstart.md#define-tasks--flow). Run it and inspect with `describe()` / `export_dot()`.
+Follow the minimal example in [Quickstart](quickstart.md#define-tasks-flow). Run it and inspect with `describe()` / `export_dot()`.
 
 ## 4. Add Reliability
 Configure retries, backoff, and timeouts: [Retries & Failures](retries-timeouts-failure.md)
