@@ -46,13 +46,13 @@ class TaskDefinition:
                     if self.run_in == "thread":
                         return await asyncio.to_thread(self.fn, *args, **kwargs)
                     if self.run_in == "process":
-                        from .executors.process_executor import get_process_pool
+                        from .execution import get_process_pool
 
                         loop = asyncio.get_running_loop()
                         pool = get_process_pool()
                         import cloudpickle
 
-                        from .executors.process_executor import run_pickled
+                        from .execution import run_pickled
 
                         fn_bytes = cloudpickle.dumps((self.fn, args, kwargs))
                         return await loop.run_in_executor(

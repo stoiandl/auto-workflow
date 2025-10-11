@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import pickle
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -17,7 +19,8 @@ class ResultCache(Protocol):  # pragma: no cover - interface
 
 class InMemoryResultCache:
     def __init__(self) -> None:
-        self._store: dict[str, tuple[float, Any]] = {}
+        # Use OrderedDict for LRU semantics when bounding entries
+        self._store: OrderedDict[str, tuple[float, Any]] = OrderedDict()
 
     def get(self, key: str, ttl: int | None) -> Any | None:
         if ttl is None:
@@ -27,11 +30,35 @@ class InMemoryResultCache:
             return None
         ts, value = item
         if time.time() - ts <= ttl:
+            # mark as recently used for LRU
+            from contextlib import suppress
+
+            with suppress(Exception):
+                self._store.move_to_end(key)
             return value
         return None
 
     def set(self, key: str, value: Any) -> None:
         self._store[key] = (time.time(), value)
+        # mark as recently used
+        from contextlib import suppress
+
+        with suppress(Exception):
+            self._store.move_to_end(key)
+        # enforce optional LRU bound
+        cfg = load_config()
+        max_entries = cfg.get("result_cache_max_entries")
+        if isinstance(max_entries, str) and max_entries.isdigit():
+            try:
+                max_entries = int(max_entries)
+            except Exception:
+                max_entries = None
+        if isinstance(max_entries, int) and max_entries > 0:
+            while len(self._store) > max_entries:
+                try:
+                    self._store.popitem(last=False)
+                except Exception:
+                    break
 
 
 class FileSystemResultCache(InMemoryResultCache):
@@ -41,7 +68,12 @@ class FileSystemResultCache(InMemoryResultCache):
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, key: str) -> Path:
-        return self.root / key
+        # use sha256 to create a filesystem-safe path; shard into 2-level dirs
+        h = hashlib.sha256(key.encode()).hexdigest()
+        shard1, shard2 = h[:2], h[2:4]
+        p = self.root / shard1 / shard2
+        p.mkdir(parents=True, exist_ok=True)
+        return p / h
 
     def get(self, key: str, ttl: int | None) -> Any | None:  # type: ignore[override]
         p = self._path(key)

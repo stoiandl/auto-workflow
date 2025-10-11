@@ -62,6 +62,23 @@ combine-as-imports = true
 "tests/**/*" = ["S101", "F401"]
 
 
+[tool.pytest.ini_options]
+testpaths = [
+    "tests"
+]
+asyncio_mode = "auto"
+markers = [
+    "core: core DAG/flow/task behaviors",
+    "scheduler: scheduling, priorities, failure policies",
+    "dynamic: dynamic fan-out related",
+    "caching: result cache behaviors",
+    "artifacts: artifact store behaviors",
+    "observability: tracing, metrics, middleware",
+    "cli: command-line interface behavior",
+    "benchmark: performance smoke tests",
+    "regression: broader/edge scenarios"
+]
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

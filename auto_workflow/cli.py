@@ -6,9 +6,6 @@ import argparse
 import importlib
 import json
 
-from .logging_middleware import structured_logging_middleware
-from .middleware import register
-
 
 def load_flow(dotted: str):
     if ":" not in dotted:
@@ -24,7 +21,6 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     run_p = sub.add_parser("run", help="Run a flow")
     run_p.add_argument("flow", help="module:flow_object path")
-    run_p.add_argument("--executor", default="async")
     run_p.add_argument("--failure-policy", default="fail_fast")
     run_p.add_argument("--max-concurrency", type=int, default=None)
     run_p.add_argument("--params", help="JSON params dict", default=None)
@@ -40,16 +36,24 @@ def main(argv: list[str] | None = None) -> int:
     ns = parser.parse_args(argv)
     if ns.cmd == "run":
         if ns.structured_logs:
-            register(structured_logging_middleware)
+            from .logging_middleware import register_structured_logging
+
+            register_structured_logging()
         params = json.loads(ns.params) if ns.params else None
         flow_obj = load_flow(ns.flow)
         result = flow_obj.run(
-            executor=ns.executor,
             failure_policy=ns.failure_policy,
             max_concurrency=ns.max_concurrency,
             params=params,
         )
         print(result)
+        # Best-effort graceful shutdown
+        try:
+            from .lifecycle import shutdown
+
+            shutdown()
+        except Exception:
+            pass
         return 0
     if ns.cmd == "describe":
         flow_obj = load_flow(ns.flow)

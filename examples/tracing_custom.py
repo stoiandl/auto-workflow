@@ -8,6 +8,7 @@ Demonstrates:
 Run directly:
     python examples/tracing_custom.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,6 +28,7 @@ class RecordingTracer:
         (phase, name, attrs, duration_ms or None)
     phase: 'start' or 'end'.
     """
+
     def __init__(self) -> None:
         self.records: list[tuple[str, str, dict[str, Any], float | None]] = []
 
@@ -40,9 +42,11 @@ class RecordingTracer:
             dur = (time.time() - start) * 1000.0
             self.records.append(("end", name, attrs, dur))
 
+
 # Install custom tracer
 rec = RecordingTracer()
 set_tracer(rec)
+
 
 # --- Define tasks & flow ---
 @task  # sync task defaults to thread executor
@@ -50,14 +54,17 @@ def extract() -> list[int]:
     time.sleep(0.01)
     return [1, 2, 3]
 
+
 @task
 async def transform(data: list[int]) -> list[int]:
     await asyncio.sleep(0.01)
     return [d * 10 for d in data]
 
+
 @task
 def load(items: list[int]) -> int:
     return sum(items)
+
 
 @flow
 def etl_flow():
@@ -65,6 +72,7 @@ def etl_flow():
     mapped = transform(raw)
     total = load(mapped)
     return total
+
 
 # --- Run when executed as script ---
 if __name__ == "__main__":
@@ -79,8 +87,6 @@ if __name__ == "__main__":
 
     # Example: derive total time of task spans only
     task_durations = [
-        dur
-        for phase, name, _, dur in rec.records
-        if phase == 'end' and name.startswith('task:')
+        dur for phase, name, _, dur in rec.records if phase == "end" and name.startswith("task:")
     ]
     print(f"Total task time (ms): {sum(task_durations):.2f}")

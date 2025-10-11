@@ -1,4 +1,8 @@
-"""Artifact storage abstraction (MVP in-memory)."""
+"""Artifact storage abstraction (MVP in-memory).
+
+Note: Pickle is only safe in trusted environments. A JSON serializer option is
+available via config `artifact_serializer=json` for JSON-serializable values.
+"""
 
 from __future__ import annotations
 
@@ -47,21 +51,69 @@ class FileSystemArtifactStore(InMemoryArtifactStore):  # simple extension
     def __init__(self, root: Path) -> None:
         super().__init__()
         self.root = root
+        # serializer: "pickle" (default) or "json" for JSON-serializable values
+        self.serializer = load_config().get("artifact_serializer", "pickle")
 
     def put(self, value: Any) -> ArtifactRef:  # type: ignore[override]
         ref = super().put(value)
         path = self.root / ref.key
         with path.open("wb") as f:
-            import pickle
+            # best-effort file lock (POSIX); on macOS this is fine, Windows would need msvcrt
+            try:
+                import fcntl
 
-            pickle.dump(value, f)
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            except Exception:
+                pass
+            if self.serializer == "json":
+                import json
+
+                data = json.dumps(value).encode()
+                f.write(data)
+            else:
+                import pickle
+
+                pickle.dump(value, f)
+            try:
+                import fcntl
+
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass
         return ref
 
     def get(self, ref: ArtifactRef) -> Any:  # type: ignore[override]
         path = self.root / ref.key
         if path.exists():
-            import pickle
-
             with path.open("rb") as f:
-                return pickle.load(f)
+                try:
+                    import fcntl
+
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                except Exception:
+                    pass
+                if self.serializer == "json":
+                    import json
+
+                    data = f.read()
+                    try:
+                        import fcntl
+
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    except Exception:
+                        pass
+                    return json.loads(data.decode())
+                else:
+                    import pickle
+
+                    try:
+                        obj = pickle.load(f)
+                    finally:
+                        try:
+                            import fcntl
+
+                            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                        except Exception:
+                            pass
+                    return obj
         return super().get(ref)

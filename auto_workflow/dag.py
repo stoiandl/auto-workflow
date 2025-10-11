@@ -30,20 +30,24 @@ class DAG:
         self.nodes[downstream].upstream.add(upstream)
 
     def topological_sort(self) -> list[str]:
-        # Kahn's algorithm
+        # Kahn's algorithm with deterministic ordering
         in_degree = {n: len(node.upstream) for n, node in self.nodes.items()}
-        ready = [n for n, d in in_degree.items() if d == 0]
+        ready = sorted([n for n, d in in_degree.items() if d == 0])
         order: list[str] = []
         while ready:
-            current = ready.pop()
+            # pop the smallest name for stable results
+            current = ready.pop(0)
             order.append(current)
-            for child in list(self.nodes[current].downstream):
+            for child in sorted(self.nodes[current].downstream):
                 in_degree[child] -= 1
                 if in_degree[child] == 0:
-                    ready.append(child)
+                    # keep ready sorted
+                    from bisect import insort
+
+                    insort(ready, child)
         if len(order) != len(self.nodes):
-            # Find a cycle path heuristically
-            remaining = [n for n, d in in_degree.items() if d > 0]
+            # Return nodes that still have in-degree > 0 deterministically
+            remaining = sorted([n for n, d in in_degree.items() if d > 0])
             raise CycleDetectedError(remaining)
         return order
 

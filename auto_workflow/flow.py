@@ -24,7 +24,6 @@ class Flow:
     async def _run_internal(
         self,
         *args: Any,
-        executor: str = "async",
         params: dict[str, Any] | None = None,
         failure_policy: str = FailurePolicy.FAIL_FAST,
         max_concurrency: int | None = None,
@@ -55,7 +54,7 @@ class Flow:
             # trivial, return original structure (no tasks used)
             emit("flow_completed", {"flow": self.name, "run_id": ctx.run_id, "tasks": 0})
             return structure
-        # Execute via scheduler (executor selection for CPU vs async currently ignored)
+        # Execute via scheduler
         results = await execute_dag(
             invocations,
             failure_policy=failure_policy,
@@ -68,7 +67,6 @@ class Flow:
     def run(
         self,
         *args: Any,
-        executor: str = "async",
         params: dict[str, Any] | None = None,
         failure_policy: str = FailurePolicy.FAIL_FAST,
         max_concurrency: int | None = None,
@@ -77,7 +75,6 @@ class Flow:
         return asyncio.run(
             self._run_internal(
                 *args,
-                executor=executor,
                 params=params,
                 failure_policy=failure_policy,
                 max_concurrency=max_concurrency,

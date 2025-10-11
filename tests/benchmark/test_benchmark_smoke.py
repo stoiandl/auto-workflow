@@ -1,4 +1,4 @@
-from auto_workflow.benchmarks.throughput import run_benchmark
+from benchmarks.throughput import run_benchmark
 
 
 def test_benchmark_smoke():

@@ -18,7 +18,7 @@ _A lightweight, zero-bloat, developer‑first workflow & task orchestration engi
 3. [Feature Overview](#feature-overview)
 4. [Quick Start](#quick-start)
 5. [Core Concepts](#core-concepts)
-6. [Executors (Concurrency Backends)](#executors-concurrency-backends)
+6. [Execution Modes](#execution-modes)
 7. [Building Flows & DAGs](#building-flows--dags)
 8. [Dynamic Fan‑Out / Conditional Branching](#dynamic-fan-out--conditional-branching)
 9. [Result Handling, Caching & Idempotency](#result-handling-caching--idempotency)
@@ -62,7 +62,7 @@ Core values: **No mandatory DB**, **no daemon**, **no CLI bureaucracy**, **opt�
 | Python Native | Flows are plain Python; no YAML DSL or templating required. |
 | Deterministic by Default | Task graph shape should be reproducible given the same inputs. Explicit APIs for dynamic fan‑out. |
 | Composable | Tasks are small units; flows can nest; subgraphs are reusable. |
-| Extensible | Executors, storage adapters, retry policies, and event sinks are pluggable via clean interfaces. |
+| Extensible | Storage adapters, retry policies, and event sinks are pluggable via clean interfaces. |
 | Progressive Adoption | Use it as a simple task runner first; layer complexity only when needed. |
 | Observability Hooks | Logging / metrics / tracing surfaces are unified and optional. |
 | Zero Hidden State | No implicit global registry; registration is explicit or decorator‑driven with clear import semantics. |
@@ -74,7 +74,7 @@ Core values: **No mandatory DB**, **no daemon**, **no CLI bureaucracy**, **opt�
 Planned / partially implemented capabilities:
 
 - Declarative or programmatic flow construction (builder & functional styles).
-- Multiple executors: `AsyncExecutor`, `ThreadPoolExecutor`, `ProcessPoolExecutor` (pluggable interface for future: `DaskExecutor`, `RayExecutor`, `KubernetesExecutor`).
+- Execution modes per task: async (coroutines), thread offload for sync functions, and optional process offload for CPU-bound work.
 - Rich dependency modeling: simple chaining, diamond graphs, fan‑out/fan‑in, conditional branches.
 - Dynamic task generation (bounded & explicit) for scalable mapping patterns.
 - Retry policies (fixed, exponential backoff, jitter) and per‑task overrides.
@@ -122,13 +122,13 @@ def pipeline():
 	return aggregate(squared)
 
 if __name__ == "__main__":
-	result = pipeline.run(executor="async")
+	result = pipeline.run()
 	print(result)
 ```
 
 ### Basic CLI (Planned)
 ```bash
-python -m auto_workflow run path.to.pipeline:pipeline --executor async
+python -m auto_workflow run path.to.pipeline:pipeline
 ```
 
 ---
@@ -154,21 +154,15 @@ Structured results (maybe large) that can optionally be stored externally; defau
 
 ---
 
-## Executors (Concurrency Backends)
-| Executor | Use Case | Characteristics |
-|----------|----------|-----------------|
-| `AsyncExecutor` | IO-bound, many small awaits | Single event loop, minimal overhead |
-| `ThreadPoolExecutor` | Mixed IO & light CPU | Python threads, GIL applies |
-| `ProcessPoolExecutor` | CPU-bound parallelism | Multiprocessing, serialization overhead |
-| (Pluggable future) | Dask / Ray / K8s | Distributed scaling |
+## Execution Modes
+Tasks run using one of three simple modes:
+- async: if the task function is a coroutine, it is awaited directly.
+- thread: synchronous functions are offloaded to a thread via `asyncio.to_thread` by default.
+- process: opt-in via `@task(run_in="process")` to execute in a shared `ProcessPoolExecutor` using cloudpickle for argument/result handoff.
 
-Pluggability contract (proposed):
-```python
-class BaseExecutor(Protocol):
-	async def submit(self, node_id: str, fn: Callable, *args, **kwargs) -> Any: ...
-	async def gather(self, futures: list) -> list: ...
-	async def shutdown(self, cancel: bool = False): ...
-```
+Mode selection:
+- Inferred automatically: async for `async def`, otherwise thread.
+- Overridable per task using the `run_in` parameter.
 
 ---
 
@@ -287,13 +281,13 @@ default-executor = "async"
 log-level = "INFO"
 max-dynamic-tasks = 2048
 ```
-Environment overrides: `AUTO_WORKFLOW_DEFAULT_EXECUTOR`, etc.
+Environment overrides are available for documented keys (see docs/configuration.md).
 
 ---
 
 ## Observability (Logging, Metrics, Tracing)
 Implemented surface + extensions you can plug in:
-- **Logging**: Structured JSON logging middleware (opt-in) + plain event hooks.
+- **Logging**: Structured pretty logging enabled by default with a stdout handler; you can disable structured logs or change level via env. See docs/observability.md for details.
 - **Metrics**: In‑memory provider (extensible to Prometheus / StatsD).
 - **Tracing**: Lightweight span hooks (flow + tasks). Swap tracer via `set_tracer()` for OpenTelemetry integration.
 - **Introspection**: `flow.describe()`, `flow.export_dot()`, `flow.export_graph()`.
@@ -342,11 +336,10 @@ auto_workflow/
   tasks.py          # @task decorator & Task definition
   flow.py           # Flow abstraction & @flow decorator
   dag.py            # Internal DAG model
-  executors/
+	execution.py
 	base.py
 	async_executor.py
 	thread_executor.py
-	process_executor.py
   runtime/
 	context.py
 	scheduler.py     # Lightweight topological / async scheduler
@@ -379,8 +372,7 @@ docs/
 
 ## Roadmap
 - [x] Implement core Task & Flow abstractions
-- [x] Async executor MVP
-- [x] Thread & process executors
+- [x] Per-task execution modes (async/thread/process)
 - [x] Deterministic DAG builder & cycle detection
 - [x] Basic retry/timeout policies
 - [x] Fan-out helper & dynamic mapping (static + runtime expansion)

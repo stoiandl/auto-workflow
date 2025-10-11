@@ -16,24 +16,7 @@ from .metrics_provider import get_metrics_provider
 from .middleware import get_task_middleware_chain
 from .tracing import get_tracer
 
-
-class InMemoryResultCache:
-    def __init__(self) -> None:
-        self._store: dict[str, tuple[float, Any]] = {}
-
-    def get(self, key: str, ttl: int | None) -> Any | None:
-        if ttl is None:
-            return None
-        item = self._store.get(key)
-        if not item:
-            return None
-        ts, value = item
-        if time.time() - ts <= ttl:
-            return value
-        return None
-
-    def set(self, key: str, value: Any) -> None:
-        self._store[key] = (time.time(), value)
+# result cache implementation centralized in auto_workflow.cache
 
 
 class FailurePolicy:
@@ -71,6 +54,10 @@ async def execute_dag(
     # For tasks with cache_ttl we may have multiple identical invocations ready simultaneously
     # (e.g., synchronous functions now offloaded to threads). Use an in-flight map to deduplicate.
     inflight: dict[str, asyncio.Future[Any]] = {}
+    inflight_lock = asyncio.Lock()
+    # Per dynamic fan-out concurrency control
+    placeholder_sems: dict[int, asyncio.Semaphore] = {}
+    child_to_placeholder: dict[str, int] = {}
 
     async def schedule(name: str) -> None:
         inv = inv_map[name]
@@ -81,13 +68,27 @@ async def execute_dag(
         cache_ttl = getattr(inv.definition, "cache_ttl", None)
         cache_key = inv.definition.cache_key(*resolved_args, **resolved_kwargs)
         if cache_ttl is not None:
-            cached = cache.get(cache_key, cache_ttl)
-            if cached is not None:
-                results[name] = cached
-                return
-            # Dedup: if another identical task already running, await its future
-            existing = inflight.get(cache_key)
+            # Atomic check-and-register for in-flight de-dup
+            async with inflight_lock:
+                cached = cache.get(cache_key, cache_ttl)
+                if cached is not None:
+                    from contextlib import suppress
+
+                    with suppress(Exception):
+                        get_metrics_provider().inc("cache_hits")
+                    results[name] = cached
+                    return
+                existing = inflight.get(cache_key)
+                if existing is None:
+                    # register placeholder before any execution begins so followers can await
+                    inflight[cache_key] = asyncio.get_running_loop().create_future()
+                    existing = None
+            # If another identical task already running, await its future
             if existing is not None:
+                from contextlib import suppress
+
+                with suppress(Exception):
+                    get_metrics_provider().inc("dedup_joins")
                 try:
                     value = await existing
                 except Exception as e:  # propagate underlying failure
@@ -104,10 +105,7 @@ async def execute_dag(
                     async def core_run():
                         return await inv.definition.run(*resolved_args, **resolved_kwargs)
 
-                    # apply middleware chain (wrap before marking inflight for accuracy)
-                    if cache_ttl is not None and cache_key not in inflight:
-                        # register future placeholder before execution so followers can await
-                        inflight[cache_key] = asyncio.get_running_loop().create_future()
+                    # apply middleware chain
                     value = await get_task_middleware_chain()(
                         core_run, inv.definition, resolved_args, resolved_kwargs
                     )
@@ -120,10 +118,16 @@ async def execute_dag(
             results[name] = value
             if cache_ttl is not None:
                 cache.set(cache_key, value)
-                fut = inflight.get(cache_key)
-                if fut and not fut.done():
-                    fut.set_result(value)
-                inflight.pop(cache_key, None)
+                from contextlib import suppress
+
+                with suppress(Exception):
+                    get_metrics_provider().inc("cache_sets")
+                # resolve and cleanup inflight placeholder atomically
+                async with inflight_lock:
+                    fut = inflight.get(cache_key)
+                    if fut and not fut.done():
+                        fut.set_result(value)
+                    inflight.pop(cache_key, None)
             emit(
                 "task_succeeded",
                 {"task": inv.task_name, "node": name, "duration_ms": duration * 1000.0},
@@ -134,10 +138,11 @@ async def execute_dag(
         except Exception as e:  # noqa: BLE001
             te = TaskExecutionError(inv.task_name, e)
             if cache_ttl is not None:
-                fut = inflight.get(cache_key)
-                if fut and not fut.done():
-                    fut.set_exception(e)
-                inflight.pop(cache_key, None)
+                async with inflight_lock:
+                    fut = inflight.get(cache_key)
+                    if fut and not fut.done():
+                        fut.set_exception(e)
+                    inflight.pop(cache_key, None)
             if failure_policy == FailurePolicy.FAIL_FAST:
                 emit("task_failed", {"task": inv.task_name, "node": name, "error": repr(e)})
                 # record failure result so downstream inspection doesn't KeyError before propagation
@@ -188,8 +193,13 @@ async def execute_dag(
             if gate:
                 continue
             runnable.append(node)
-        # Enforce priority ordering (higher priority scheduled first)
-        runnable.sort(key=lambda n: getattr(inv_map[n].definition, "priority", 0), reverse=True)
+        # Enforce priority ordering (higher first) and deterministic tie-break by node name
+        runnable.sort(
+            key=lambda n: (
+                -getattr(inv_map[n].definition, "priority", 0),
+                n,
+            )
+        )
         for node in runnable:
             # Skip if already scheduled (defensive against accidental duplicates in ready)
             if node in pending_tasks:
@@ -197,7 +207,18 @@ async def execute_dag(
                 ready.remove(node)
                 continue
             ready.remove(node)
-            pending_tasks[node] = asyncio.create_task(schedule(node))
+            # If node belongs to a dynamic placeholder with a concurrency limit, wrap schedule
+            pid = child_to_placeholder.get(node)
+            if pid is not None and pid in placeholder_sems:
+                sem_p = placeholder_sems[pid]
+
+                async def schedule_with_limit(n=node, s=sem_p):
+                    async with s:
+                        await schedule(n)
+
+                pending_tasks[node] = asyncio.create_task(schedule_with_limit())
+            else:
+                pending_tasks[node] = asyncio.create_task(schedule(node))
         if not pending_tasks:
             break
         done, _ = await asyncio.wait(pending_tasks.values(), return_when=asyncio.FIRST_COMPLETED)
@@ -239,6 +260,12 @@ async def execute_dag(
                         )
                     placeholder.expand(source_value)
                     for child_inv in placeholder:
+                        # Track per-placeholder concurrency if specified
+                        if getattr(placeholder, "_max_conc", None):
+                            pid = id(placeholder)
+                            if pid not in placeholder_sems:
+                                placeholder_sems[pid] = asyncio.Semaphore(placeholder._max_conc)
+                            child_to_placeholder[child_inv.name] = pid
                         if child_inv.name not in dag.nodes:
                             dag.add_node(child_inv.name)
                         # Edge from all upstream of src's children or src itself

@@ -8,18 +8,22 @@ from auto_workflow.secrets import StaticMappingSecrets, secret, set_secrets_prov
 
 MAIN_THREAD_ID = threading.get_ident()
 
+
 # --- Off-main-thread execution ---
 @task(run_in="thread")
 def _capture_thread_id() -> int:
     return threading.get_ident()
+
 
 @flow
 def thread_id_flow():
     # Single thread task to verify it does not execute on main thread
     return _capture_thread_id()
 
+
 # --- Parallel overlap measurement ---
 _overlap_records: list[tuple[float, float]] = []
+
 
 @task(run_in="thread")
 def _sleepy(idx: int, delay: float = 0.05) -> int:
@@ -29,25 +33,30 @@ def _sleepy(idx: int, delay: float = 0.05) -> int:
     _overlap_records.append((start, end))
     return idx
 
+
 @flow
 def parallel_thread_flow():
     a = _sleepy(1)
     b = _sleepy(2)
     return a, b
 
+
 # --- Cache de-dup in thread mode ---
 _thread_cache_counter = {"n": 0}
+
 
 @task(run_in="thread", cache_ttl=60)
 def _thread_cached(x: int) -> int:
     _thread_cache_counter["n"] += 1
     return x * 2
 
+
 @flow
 def thread_cache_flow():
     a = _thread_cached(5)
     b = _thread_cached(5)
     return a, b
+
 
 # --- Exception propagation from thread task ---
 @task(run_in="thread", retries=0)
@@ -56,12 +65,15 @@ def _thread_fail():
     # RetryExhaustedError wrapper at scheduler boundary.
     raise ValueError("boom-thread")
 
+
 @flow
 def thread_fail_flow():
     return _thread_fail()
 
+
 # --- max_concurrency gating with thread tasks ---
 _conc_state = {"current": 0, "max": 0}
+
 
 @task(run_in="thread")
 def _bounded_thread(x: int) -> int:
@@ -73,26 +85,32 @@ def _bounded_thread(x: int) -> int:
     finally:
         _conc_state["current"] -= 1
 
+
 @flow
 def bounded_thread_flow():
     return [_bounded_thread(i) for i in range(6)]
+
 
 # --- Secret access in thread ---
 @task(run_in="thread")
 def _thread_secret() -> str:
     return secret("THREAD_KEY")
 
+
 @flow
 def thread_secret_flow():
     return _thread_secret()
 
+
 # --- Artifact persistence in thread tasks ---
 _persist_counter = {"n": 0}
+
 
 @task(run_in="thread", persist=True, cache_ttl=60)
 def _persist_thread_task():
     _persist_counter["n"] += 1
     return {"v": _persist_counter["n"]}
+
 
 @flow
 def persist_thread_flow():
@@ -100,7 +118,9 @@ def persist_thread_flow():
     b = _persist_thread_task()
     return a, b
 
+
 # ===================== Tests ===================== #
+
 
 def test_thread_exec_not_main():
     tid = thread_id_flow.run()

@@ -5,6 +5,7 @@ Demonstrates:
 - mixing sync & async tasks
 - tagging tasks
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,15 +19,18 @@ async def low_latency_call():
     await asyncio.sleep(0.05)
     return ("low", time.time())
 
+
 @task(priority=10)
 async def high_priority_call():
     await asyncio.sleep(0.02)
     return ("high", time.time())
 
+
 @task(priority=5)
 async def mid_priority_call():
     await asyncio.sleep(0.03)
     return ("mid", time.time())
+
 
 @task
 def order_summary(results):
@@ -35,6 +39,7 @@ def order_summary(results):
     labels = [label for label, _ in ordered]
     return {"start_order": labels}
 
+
 @flow
 def priority_flow():
     a = low_latency_call()
@@ -42,6 +47,7 @@ def priority_flow():
     c = mid_priority_call()
     # collect only after all three complete
     return order_summary([a, b, c])
+
 
 if __name__ == "__main__":
     print(priority_flow.run())
