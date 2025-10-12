@@ -56,7 +56,8 @@ jobs:
 
       - name: Run unit tests with coverage (fail under 90%)
         run: |
-          poetry run pytest -q --cov=auto_workflow --cov-report=xml --cov-report=term-missing
+          rm -f .coverage .coverage.* coverage.xml || true
+          poetry run pytest -q --cov=auto_workflow --cov-branch --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
