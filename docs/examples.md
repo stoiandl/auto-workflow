@@ -25,7 +25,7 @@ def load(batches: list[dict]) -> int:
 def etl():
     srcs = extract_sources()
     extracted = fan_out(extract, srcs)   # dynamic mapping
-    transformed = [transform(b) for b in extracted]  # static mapping of previous dynamic children
+    transformed = fan_out(transform, extracted)  # dynamic mapping of previous dynamic results
     return load(transformed)
 
 print(etl.run())
@@ -42,7 +42,8 @@ def heavy(x: int): return compute(x)
 @flow
 def prioritized():
     cfg = config()
-    results = [heavy(i) for i in range(5)]
+    # For static known values, you can use list comprehension with static data
+    results = [heavy(i) for i in range(5)]  # static: each heavy(0), heavy(1), etc.
     return results, cfg
 ```
 

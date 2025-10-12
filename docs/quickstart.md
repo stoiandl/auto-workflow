@@ -2,10 +2,17 @@
 
 This guide gets you from zero to a running flow in a couple of minutes.
 
-## Installation (Local Source Checkout)
+## Installation
+
+### From PyPI
+```bash
+pip install auto-workflow
+```
+
+### Local Development Setup
 ```bash
 # Clone repository
-git clone https://github.com/andreistoica/auto-workflow.git
+git clone https://github.com/stoiandl/auto-workflow.git
 cd auto-workflow
 # Install dependencies and dev tools with Poetry
 poetry install --with dev
@@ -14,7 +21,7 @@ poetry run pytest -q  # sanity check
 
 ## Define Tasks & Flow
 ```python
-from auto_workflow import task, flow
+from auto_workflow import task, flow, fan_out
 
 @task
 def numbers() -> list[int]:
@@ -31,7 +38,7 @@ def total(values: list[int]) -> int:
 @flow
 def pipeline():
     nums = numbers()
-    squares = [square(n) for n in nums]  # static fan-out (list comprehension of task calls)
+    squares = fan_out(square, nums)  # dynamic fan-out: create tasks for each number
     return total(squares)
 
 if __name__ == "__main__":

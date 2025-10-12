@@ -3,9 +3,10 @@
 Dynamic fan-out allows creating tasks only after an upstream result is known (runtime expansion). This supports scenarios where the number of follow-on tasks depends on data.
 
 ## Static vs Dynamic
-Static fan-out (list comprehension) creates child task invocations during build:
+Static fan-out uses known values during build time:
 ```python
-squares = [square(n) for n in numbers()]
+# Static: known at build time - creates 3 separate task invocations
+squares = [square(n) for n in [1, 2, 3]]
 ```
 
 Dynamic fan-out defers creation until upstream task result is available:

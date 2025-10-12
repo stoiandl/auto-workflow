@@ -3,7 +3,7 @@
 This page gives you a structured path from installation to building production-ready flows.
 
 ## 1. Install
-See [Quickstart](quickstart.md#installation-local-source-checkout) for local source install. PyPI package coming soon.
+Install with `pip install auto-workflow` or see [Quickstart](quickstart.md#installation) for development setup.
 
 ## 2. Learn Core Primitives
 1. Read [Tasks](concepts/tasks.md)

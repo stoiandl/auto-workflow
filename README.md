@@ -77,7 +77,18 @@ Core values: **No mandatory DB**, **no daemon**, **no CLI bureaucracy**, **opt�
 
 
 ## Feature Overview
-Planned / partially implemented capabilities:
+Core capabilities:
+
+- **Task Definition**: `@task` decorator with retry, timeout, caching, and execution mode options
+- **Flow Orchestration**: `@flow` decorator for building DAGs with automatic dependency resolution
+- **Dynamic Fan-Out**: `fan_out()` for runtime task creation based on upstream results  
+- **Multiple Execution Modes**: async, thread pool, and process pool execution
+- **Caching & Artifacts**: Task result caching and large result persistence
+- **Observability**: Built-in logging, metrics, tracing, and event system
+- **Configuration**: Environment-based config with structured logging
+- **CLI Tools**: Run, describe, and list flows via command line
+- **Secrets Management**: Pluggable secrets providers
+- **Failure Handling**: Configurable retry policies and failure propagation
 
 
 
@@ -98,7 +109,7 @@ poetry run pytest --cov=auto_workflow --cov-report=term-missing
 
 ### Define Tasks
 ```python
-from auto_workflow import task, flow
+from auto_workflow import task, flow, fan_out
 
 @task
 def load_numbers() -> list[int]:
@@ -115,8 +126,8 @@ def aggregate(values: list[int]) -> int:
 @flow
 def pipeline():
 	nums = load_numbers()
-	# Fan-out map (dynamic child tasks)
-	squared = [square(n) for n in nums]  # Under the hood becomes dynamic tasks
+	# Dynamic fan-out: create tasks for each number
+	squared = fan_out(square, nums)
 	return aggregate(squared)
 
 if __name__ == "__main__":
@@ -170,27 +181,18 @@ Mode selection:
 
 
 ## Building Flows & DAGs
-Two equivalent approaches (both may be supported):
+Flows are defined using the `@flow` decorator:
 
-1. **Imperative Functional** (Python execution builds nodes):
-   ```python
-   @flow
-   def my_flow():
-	   a = task_a()
-	   b = task_b(a)
-	   c = task_c(a, b)
-	   return c
-   ```
-2. **Explicit Builder** (defer evaluation):
-   ```python
-   from auto_workflow import FlowBuilder
-   fb = FlowBuilder(name="my_flow")
-   a = fb.task(task_a)
-   b = fb.task(task_b, a)
-   c = fb.task(task_c, a, b)
-   flow = fb.build()
-   flow.run()
-   ```
+```python
+@flow
+def my_flow():
+    a = task_a()
+    b = task_b(a)
+    c = task_c(a, b)
+    return c
+```
+
+Task dependencies are determined automatically by passing task invocation results as arguments to other tasks.
 
 
 ## Dynamic Fan-Out / Conditional Branching
@@ -224,13 +226,16 @@ def conditional_flow(flag: bool):
 
 
 ## Result Handling, Caching & Idempotency
-Strategies (planned):
+Tasks support caching with TTL and artifact persistence for large results:
 
-Example (concept):
 ```python
-@task(cache_ttl=3600)
+@task(cache_ttl=3600)  # Cache for 1 hour
 def expensive(x: int) -> int:
 	return do_work(x)
+
+@task(persist=True)  # Store large results via artifact store
+def produce_large_dataset() -> dict:
+	return {"data": list(range(1000000))}
 ```
 
 
@@ -240,7 +245,9 @@ Per-task configuration:
 @task(retries=3, retry_backoff=2.0, retry_jitter=0.3, timeout=30)
 def flaky(): ...
 ```
-Failure policy options (proposed):
+Failure policy options:
+- `FAIL_FAST`: Stop on first error (default)
+- `CONTINUE`: Continue executing independent tasks
 
 
 ## Hooks, Events & Middleware
@@ -259,35 +266,40 @@ def timing_middleware(next_call):
 	return wrapper
 ```
 
-Event bus emission (planned): structured events -> pluggable sinks (stdout logger, OTLP exporter, WebSocket UI).
+Event bus: structured events with pluggable subscribers for custom logging and monitoring.
 
 
 ## Configuration & Environment
-Minimal first-class configuration (future `pyproject.toml` block):
-```toml
-[tool.auto_workflow]
-default-executor = "async"
-log-level = "INFO"
-max-dynamic-tasks = 2048
-```
-Environment overrides are available for documented keys (see docs/configuration.md).
+Configuration via environment variables:
+- `AUTO_WORKFLOW_LOG_LEVEL`: Set logging level (default: INFO)  
+- `AUTO_WORKFLOW_DISABLE_STRUCTURED_LOGS`: Disable structured logging
+- `AUTO_WORKFLOW_MAX_DYNAMIC_TASKS`: Limit dynamic task expansion
+
+See docs/configuration.md for full details.
 
 
 ## Observability (Logging, Metrics, Tracing)
-Implemented surface + extensions you can plug in:
+Built-in observability features:
+
+- **Structured Logging**: Automatic JSON-formatted logging with task/flow context
+- **Metrics**: Pluggable metrics providers (in-memory and custom backends)  
+- **Tracing**: Task and flow execution spans for performance monitoring
+- **Events**: Pub/sub event system for task lifecycle hooks
+- **Middleware**: Chain custom logic around task execution
 
 
-## Extensibility Roadmap
+## Extensibility
 | Extension | Interface | Status |
 |-----------|-----------|--------|
-| Executor plugins | `BaseExecutor` | Planned |
-| Storage backend | `ArtifactStore` | Planned |
-| Cache backend | `ResultCache` | Planned |
-| Metrics provider | `MetricsProvider` | Planned |
-| Tracing adapter | `Tracer` | Planned |
-| Retry policy | Strategy object | Planned |
-| Scheduling layer | External module | Backlog |
-| UI / API | Optional service | Backlog |
+| Storage backend | `ArtifactStore` | ✅ Implemented |
+| Cache backend | `ResultCache` | ✅ Implemented |
+| Metrics provider | `MetricsProvider` | ✅ Implemented |  
+| Tracing adapter | `Tracer` | ✅ Implemented |
+| Secrets provider | `SecretsProvider` | ✅ Implemented |
+| Event middleware | Middleware chain | ✅ Implemented |
+| Executor plugins | `BaseExecutor` | Future |
+| Scheduling layer | External module | Future |
+| UI / API | Optional service | Future |
 
 
 ## Security & Isolation Considerations
@@ -339,7 +351,7 @@ docs/
 
 **Q: Do I need decorators?** No; you can manually wrap callables into Tasks if you prefer pure functional style.
 
-**Q: How does it serialize arguments across processes?** Planned fallback: cloudpickle; user can register custom serializer.
+**Q: How does it serialize arguments across processes?** Uses cloudpickle for process execution mode.
 
 **Q: Scheduling / cron?** Out of core scope—provide a thin adapter so external schedulers (cron, systemd timers, GitHub Actions) can invoke flows.
 
@@ -374,7 +386,7 @@ Contributions are welcome once the core API draft solidifies. Until then:
 3. Adhere to Ruff formatting & lint rules (pre-commit enforced).
 4. Add or update examples & docs for new features.
 
-Planned contribution guides: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`.
+See `CONTRIBUTING.md` for detailed contribution guidelines.
 
 
 ## Versioning & Stability
