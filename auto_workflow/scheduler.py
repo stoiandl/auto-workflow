@@ -298,9 +298,9 @@ async def execute_dag(
                                 return list(target)
                             # Do not traverse into unrelated DynamicFanOut placeholders;
                             # treat them as atomic until their own expansion pass.
-                            from .fanout import DynamicFanOut as _DF
+                            from .fanout import DynamicFanOut as DynamicFanOutPlaceholder
 
-                            if isinstance(o, _DF):
+                            if isinstance(o, DynamicFanOutPlaceholder):
                                 return o
                             if isinstance(o, list):
                                 return [_walk(x, target) for x in o]

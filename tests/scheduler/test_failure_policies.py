@@ -1,4 +1,5 @@
 from auto_workflow import FailurePolicy, flow, task
+from auto_workflow.exceptions import AggregateTaskError, TaskExecutionError
 
 
 @task
@@ -36,8 +37,6 @@ def test_fail_fast_policy_raises():
 def test_continue_policy_skips_failed_children():
     out = simple_chain.run(fail=True, failure_policy=FailurePolicy.CONTINUE)
     # boom fails, so final node result is a TaskExecutionError placeholder; flow returns it
-    from auto_workflow.exceptions import TaskExecutionError
-
     assert isinstance(out, TaskExecutionError)
 
 
@@ -45,13 +44,9 @@ def test_aggregate_policy_raises_aggregate():
     try:
         simple_chain.run(fail=True, failure_policy=FailurePolicy.AGGREGATE)
     except Exception as e:
-        from auto_workflow.exceptions import AggregateTaskError
-
         assert isinstance(e, AggregateTaskError)
     else:
         raise AssertionError("Expected aggregate error in aggregate policy")
-from auto_workflow import FailurePolicy, flow, task
-from auto_workflow.exceptions import AggregateTaskError, TaskExecutionError
 
 
 @task

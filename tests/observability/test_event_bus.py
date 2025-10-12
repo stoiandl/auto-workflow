@@ -1,4 +1,4 @@
-from auto_workflow.events import subscribe, emit
+from auto_workflow.events import emit, subscribe
 
 
 def test_event_bus_subscribe_and_emit(capsys):
