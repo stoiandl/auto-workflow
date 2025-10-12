@@ -40,3 +40,19 @@ def test_cli_run_and_describe(capsys):
     out = capsys.readouterr().out
     desc = json.loads(out)
     assert desc["flow"] == "cli_flow"
+
+
+def test_cli_run_with_params_and_structured_logs(capsys, monkeypatch):
+    # Ensure structured logging path executes
+    rc = main([
+        "run",
+        f"{module_name}:cli_flow",
+        "--structured-logs",
+        "--failure-policy",
+        "fail_fast",
+        "--max-concurrency",
+        "4",
+        "--params",
+        json.dumps({}),
+    ])
+    assert rc == 0

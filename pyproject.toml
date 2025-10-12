@@ -25,6 +25,7 @@ pre-commit = "^4.3.0"  # Updated to latest
 ruff = "^0.14.0"       # Updated to latest
 pytest = "^8.3.0"
 pytest-asyncio = "^0.23.0"
+pytest-cov = "^6.0.0"
 mkdocs = "^1.6.0"
 mkdocs-material = "^9.5.0"
 
@@ -83,6 +84,30 @@ markers = [
     "cli: command-line interface behavior",
     "benchmark: performance smoke tests",
     "regression: broader/edge scenarios"
+]
+
+
+# Coverage.py configuration (used by pytest-cov)
+[tool.coverage.run]
+branch = true
+source = ["auto_workflow"]
+omit = [
+    "**/__init__.py",
+    "tests/**",
+    "examples/**",
+    "docs/**",
+    "site/**",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+precision = 2
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == '__main__':",
+    "if TYPE_CHECKING:",
 ]
 
 

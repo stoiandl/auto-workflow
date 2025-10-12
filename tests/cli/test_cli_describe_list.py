@@ -59,3 +59,13 @@ def test_cli_list(tmp_path):
     assert proc.returncode == 0
     data = json.loads(proc.stdout)
     assert "f" in data and data["f"] == 1
+
+
+def test_cli_list_empty_module(tmp_path):
+    mod = tmp_path / "empty.py"
+    mod.write_text("x=1\n")
+    cmd = [sys.executable, "-m", "auto_workflow.cli", "list", f"{mod.stem}"]
+    proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True)
+    assert proc.returncode == 0
+    data = json.loads(proc.stdout)
+    assert data == {}

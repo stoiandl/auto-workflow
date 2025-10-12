@@ -1,9 +1,15 @@
 <div align="center">
 
+<picture>
+	<source media="(prefers-color-scheme: dark)" srcset="assets/logo.svg" />
+	<img alt="auto-workflow" src="assets/logo.svg" width="720" />
+</picture>
+
 # auto-workflow
 
 [![CI](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml)
 [![Docs build](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml/badge.svg?branch=main&event=push)](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml)
+[![Coverage Status](https://img.shields.io/codecov/c/github/stoiandl/auto-workflow/main?logo=codecov&label=coverage)](https://app.codecov.io/gh/stoiandl/auto-workflow)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://stoiandl.github.io/auto-workflow/) [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 _A lightweight, zero-bloat, developer‑first workflow & task orchestration engine for Python._
@@ -86,6 +92,12 @@ poetry install --with dev
 poetry run pytest -q
 poetry run ruff check .
 poetry run pre-commit install
+```
+
+Run tests with coverage locally:
+
+```bash
+poetry run pytest --cov=auto_workflow --cov-report=term-missing
 ```
 
 ### Define Tasks
