@@ -2,6 +2,7 @@
 
 try:  # pragma: no cover - best-effort version exposure
     from importlib.metadata import version as _pkg_version
+
     __version__ = _pkg_version("auto-workflow")
 except Exception:  # pragma: no cover
     __version__ = "0"

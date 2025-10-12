@@ -73,4 +73,3 @@ Initial alpha release.
 - Ruff lint/format configuration and enforced checks.
 - Pytest configuration with markers and coverage ≥ 90% gate.
 - Coverage configuration (omit docs/examples/site), branch coverage enabled.
-
