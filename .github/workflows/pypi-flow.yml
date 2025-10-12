@@ -84,21 +84,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
+      - name: Detect publishing mode
+        id: detect
+        run: |
+          if [ -n "${PYPI_API_TOKEN}" ]; then
+            echo "use_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_token=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to PyPI (API token)
-        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+        if: ${{ steps.detect.outputs.use_token == 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print-hash: true
 
       - name: Publish to PyPI (Trusted Publishing)
-        if: ${{ secrets.PYPI_API_TOKEN == '' }}
+        if: ${{ steps.detect.outputs.use_token == 'false' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
