@@ -2,7 +2,7 @@
 
 <picture>
 	<source media="(prefers-color-scheme: dark)" srcset="assets/logo.svg" />
-	<img alt="auto-workflow" src="assets/logo.svg" width="720" />
+		<img alt="auto-workflow" src="assets/logo.svg" width="560" />
 </picture>
 
 # auto-workflow
