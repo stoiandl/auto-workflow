@@ -13,15 +13,20 @@ class Node:
     name: str
     upstream: set[str] = field(default_factory=set)
     downstream: set[str] = field(default_factory=set)
+    # Optional DOT attributes for visualization
+    label: str | None = None
+    shape: str | None = None
+    color: str | None = None
+    style: str | None = None
 
 
 class DAG:
     def __init__(self) -> None:
         self.nodes: dict[str, Node] = {}
 
-    def add_node(self, name: str) -> None:
+    def add_node(self, name: str, **attrs) -> None:
         if name not in self.nodes:
-            self.nodes[name] = Node(name=name)
+            self.nodes[name] = Node(name=name, **attrs)
 
     def add_edge(self, upstream: str, downstream: str) -> None:
         self.add_node(upstream)
@@ -65,11 +70,31 @@ class DAG:
     # Export utilities
     def to_dot(self) -> str:
         lines = ["digraph G {"]
+
+        # Add nodes with attributes
         for name, node in self.nodes.items():
-            if not node.downstream:
+            attrs = []
+            if node.label:
+                attrs.append(f'label="{node.label}"')
+            if node.shape:
+                attrs.append(f'shape="{node.shape}"')
+            if node.color:
+                attrs.append(f'color="{node.color}"')
+            if node.style:
+                attrs.append(f'style="{node.style}"')
+
+            if attrs:
+                attr_str = ", ".join(attrs)
+                lines.append(f'  "{name}" [{attr_str}];')
+            elif not node.downstream:
+                # Only add standalone nodes if they have no downstream connections
                 lines.append(f'  "{name}";')
+
+        # Add edges
+        for name, node in self.nodes.items():
             for d in node.downstream:
                 lines.append(f'  "{name}" -> "{d}";')
+
         lines.append("}")
         return "\n".join(lines)
 

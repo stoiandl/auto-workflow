@@ -11,6 +11,23 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 - More cache/artifact backends and configuration surface
 - Extended metrics/tracing providers and middleware library
 
+## [0.1.2] - 2025-10-12
+### Added
+- Comprehensive tests for dynamic fan-out graph representation:
+	- Simple dynamic mapping, nested fan-out (2–3 levels), sibling fan-outs merged downstream,
+		and multiple consumers sharing the same fan-out.
+
+### Changed
+- `Flow.describe()` now models dynamic fan-outs explicitly as barrier nodes (`fanout:{n}`),
+	deduplicates multi-consumers, and propagates transitive dependencies so downstream nodes
+	correctly reference all relevant fan-out barriers.
+- `Flow.export_dot()` renders fan-out barriers as diamond-shaped nodes labeled `fan_out(task)`
+	and wires `source -> fanout -> consumer`, including fanout-of-fanout chains.
+
+### Fixed
+- Incorrect/missing dynamic fan-out edges in `describe()`/`export_dot()` for nested mapping and
+	multi-branch scenarios; graphs now reflect true execution ordering without duplicate edges.
+
 ## [0.1.1] - 2025-10-12
 ### Fixed
 - **BREAKING FIX**: Corrected documentation examples that showed invalid `[square(n) for n in nums]` pattern which doesn't work since `nums` is a `TaskInvocation`, not an iterable
