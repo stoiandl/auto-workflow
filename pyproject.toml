@@ -1,15 +1,18 @@
-[project]
+[tool.poetry]
 name = "auto-workflow"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "andreistoica",email = "andreilst@yahoo.ro"}
-]
+description = "A lightweight, developer-first workflow & task orchestration engine for Python."
+authors = ["andreistoica <andreilst@yahoo.ro>"]
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "cloudpickle>=3.0.0,<4.0.0",
+packages = [{ include = "auto_workflow" }]
+license = "GPL-3.0-or-later"
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
 ]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+cloudpickle = ">=3.0.0,<4.0.0"
 
 # Optional: define optional dev dependency groups (PEP 735 draft style). If your tooling
 # doesn't yet support this, you can ignore. Pre-commit pins hook versions, so adding

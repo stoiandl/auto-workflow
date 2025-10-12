@@ -7,12 +7,9 @@ This guide gets you from zero to a running flow in a couple of minutes.
 # Clone repository
 git clone https://github.com/andreistoica/auto-workflow.git
 cd auto-workflow
-# Create virtual environment (Python >= 3.12)
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-# (Optional) install dev tools
-pip install pytest pytest-asyncio ruff
+# Install dependencies and dev tools with Poetry
+poetry install --with dev
+poetry run pytest -q  # sanity check
 ```
 
 ## Define Tasks & Flow

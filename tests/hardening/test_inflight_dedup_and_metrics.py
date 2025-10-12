@@ -1,7 +1,11 @@
 import asyncio
 
 from auto_workflow import flow, task
-from auto_workflow.metrics_provider import InMemoryMetrics, get_metrics_provider, set_metrics_provider
+from auto_workflow.metrics_provider import (
+    InMemoryMetrics,
+    get_metrics_provider,
+    set_metrics_provider,
+)
 
 
 def test_inflight_dedup_metrics_and_exec_count():
@@ -29,4 +33,3 @@ def test_inflight_dedup_metrics_and_exec_count():
     # 1 cache_set for the first completion, 9 dedup joins for followers; cache_hits may be zero here
     assert mp.counters.get("cache_sets", 0) >= 1
     assert mp.counters.get("dedup_joins", 0) >= 9
-

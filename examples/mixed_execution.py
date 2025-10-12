@@ -16,8 +16,8 @@ from typing import Any
 from auto_workflow import fan_out, flow, task
 from auto_workflow.artifacts import get_store
 
-
 # --- Helpers for CPU-bound demo (runs best in a process) ---
+
 
 def _fib(n: int) -> int:
     # intentionally naive to be CPU-heavy for small n

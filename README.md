@@ -2,7 +2,9 @@
 
 # auto-workflow
 
-[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://stoiandl.github.io/auto-workflow/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml)
+[![Docs build](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml)
+[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://stoiandl.github.io/auto-workflow/) [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 _A lightweight, zero-bloat, developer‑first workflow & task orchestration engine for Python._
 
@@ -93,9 +95,12 @@ Planned / partially implemented capabilities:
 ### Install
 
 ```bash
-pip install auto-workflow  # (Placeholder – pending first published release)
-# or with Poetry (in this repo):
-poetry add --group dev auto-workflow
+# Local development (using Poetry)
+poetry install --with dev
+# Run tools via Poetry
+poetry run pytest -q
+poetry run ruff check .
+poetry run pre-commit install
 ```
 
 ### Define Tasks
@@ -433,7 +438,7 @@ Migration notes will be maintained in `CHANGELOG.md` (to be added).
 ---
 
 ## License
-Intended license: MIT (to be added as `LICENSE` file). If you need alternate licensing, open an issue early.
+This project is licensed under the GNU General Public License v3.0. See `LICENSE` for details. If you need alternate licensing, open an issue to discuss.
 
 ---
 

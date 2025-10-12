@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from .execution import _shutdown_pool  # internal but intentional for lifecycle
 
 
@@ -10,7 +12,5 @@ def shutdown() -> None:
 
     Safe to call multiple times.
     """
-    try:
+    with suppress(Exception):
         _shutdown_pool()
-    except Exception:
-        pass

@@ -1,6 +1,6 @@
-from auto_workflow.lifecycle import shutdown
-from auto_workflow.artifacts import FileSystemArtifactStore, ArtifactRef
+from auto_workflow.artifacts import ArtifactRef, FileSystemArtifactStore
 from auto_workflow.config import reload_config
+from auto_workflow.lifecycle import shutdown
 
 
 def test_lifecycle_shutdown_idempotent():

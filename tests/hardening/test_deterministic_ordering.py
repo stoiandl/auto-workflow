@@ -1,5 +1,5 @@
-from auto_workflow.dag import DAG
 from auto_workflow import flow, task
+from auto_workflow.dag import DAG
 
 
 def test_dag_topological_sort_deterministic():

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import atexit
 from concurrent.futures import ProcessPoolExecutor
+from contextlib import suppress
 from typing import Any
 
 import cloudpickle
+
 from .config import load_config
 
 _SHARED_POOL: ProcessPoolExecutor | None = None
@@ -15,10 +17,8 @@ _SHARED_POOL: ProcessPoolExecutor | None = None
 def _shutdown_pool() -> None:
     global _SHARED_POOL
     if _SHARED_POOL is not None:
-        try:
+        with suppress(Exception):
             _SHARED_POOL.shutdown(wait=True, cancel_futures=True)
-        except Exception:
-            pass
         _SHARED_POOL = None
 
 
