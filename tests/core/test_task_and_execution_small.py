@@ -1,7 +1,7 @@
 import asyncio
 
+from auto_workflow.execution import _shutdown_pool, get_process_pool
 from auto_workflow.task import task
-from auto_workflow.execution import get_process_pool, _shutdown_pool
 
 
 def test_task_decorator_infers_run_in_for_sync():

@@ -1,6 +1,6 @@
 import os
 
-from auto_workflow.artifacts import FileSystemArtifactStore, ArtifactRef
+from auto_workflow.artifacts import ArtifactRef, FileSystemArtifactStore
 
 
 def test_filesystem_artifact_store_pickle(tmp_path, monkeypatch):

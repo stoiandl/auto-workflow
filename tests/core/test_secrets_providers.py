@@ -1,6 +1,6 @@
 import os
 
-from auto_workflow.secrets import EnvSecrets, StaticMappingSecrets, set_secrets_provider, secret
+from auto_workflow.secrets import EnvSecrets, StaticMappingSecrets, secret, set_secrets_provider
 
 
 def test_env_secrets(monkeypatch):

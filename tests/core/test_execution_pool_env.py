@@ -1,5 +1,5 @@
-from auto_workflow.execution import get_process_pool, _shutdown_pool
 from auto_workflow.config import reload_config
+from auto_workflow.execution import _shutdown_pool, get_process_pool
 
 
 def test_process_pool_env_digit(monkeypatch):

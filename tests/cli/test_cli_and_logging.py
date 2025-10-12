@@ -44,15 +44,17 @@ def test_cli_run_and_describe(capsys):
 
 def test_cli_run_with_params_and_structured_logs(capsys, monkeypatch):
     # Ensure structured logging path executes
-    rc = main([
-        "run",
-        f"{module_name}:cli_flow",
-        "--structured-logs",
-        "--failure-policy",
-        "fail_fast",
-        "--max-concurrency",
-        "4",
-        "--params",
-        json.dumps({}),
-    ])
+    rc = main(
+        [
+            "run",
+            f"{module_name}:cli_flow",
+            "--structured-logs",
+            "--failure-policy",
+            "fail_fast",
+            "--max-concurrency",
+            "4",
+            "--params",
+            json.dumps({}),
+        ]
+    )
     assert rc == 0

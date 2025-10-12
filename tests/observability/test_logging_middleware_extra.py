@@ -26,14 +26,16 @@ def test_structured_pretty_formatter_parses_json_and_fallbacks():
         level=logging.INFO,
         pathname=__file__,
         lineno=1,
-        msg=json.dumps({
-            "event": "task_ok",
-            "flow": "f",
-            "run_id": "r1",
-            "task": "t",
-            "node": "n",
-            "duration_ms": 12.345,
-        }),
+        msg=json.dumps(
+            {
+                "event": "task_ok",
+                "flow": "f",
+                "run_id": "r1",
+                "task": "t",
+                "node": "n",
+                "duration_ms": 12.345,
+            }
+        ),
         args=(),
         exc_info=None,
     )

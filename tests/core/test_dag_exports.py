@@ -9,7 +9,7 @@ def test_dag_to_dot_and_to_dict_and_subgraph():
     d = dag.to_dict()
     assert set(d.keys()) == {"a", "b", "c", "d"}
     dot = dag.to_dot()
-    assert "\"a\" -> \"b\";" in dot and "\"a\" -> \"c\";" in dot
+    assert '"a" -> "b";' in dot and '"a" -> "c";' in dot
 
     sg = dag.subgraph(["a", "b", "d"])  # exclude c
     sd = sg.to_dict()
