@@ -9,6 +9,9 @@ license = "GPL-3.0-or-later"
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
 ]
+homepage = "https://github.com/stoiandl/auto-workflow"
+repository = "https://github.com/stoiandl/auto-workflow"
+documentation = "https://stoiandl.github.io/auto-workflow/"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"

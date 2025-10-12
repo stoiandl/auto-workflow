@@ -2,9 +2,9 @@
 
 # auto-workflow
 
-[![CI](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml)
-[![Docs build](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml)
-[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://stoiandl.github.io/auto-workflow/) [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![CI](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/stoiandl/auto-workflow/actions/workflows/ci.yml)
+[![Docs build](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml/badge.svg?branch=main&event=push)](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://stoiandl.github.io/auto-workflow/) [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 _A lightweight, zero-bloat, developer‑first workflow & task orchestration engine for Python._
 
@@ -12,7 +12,11 @@ _A lightweight, zero-bloat, developer‑first workflow & task orchestration engi
 
 </div>
 
----
+## Quick links
+
+- Docs (GitHub Pages): https://stoiandl.github.io/auto-workflow/
+- Repository: https://github.com/stoiandl/auto-workflow
+
 
 ## Table of Contents
 1. [Why Another Orchestrator?](#why-another-orchestrator)
@@ -39,15 +43,10 @@ _A lightweight, zero-bloat, developer‑first workflow & task orchestration engi
 22. [License](#license)
  23. [Examples Overview](#examples-overview)
 
----
 
 ## Why Another Orchestrator?
 Existing platforms (Airflow, Prefect, Dagster, Luigi) solve orchestration at scale—but often at the cost of:
 
-- Heavy dependencies & daemon processes.
-- Required external services (databases, schedulers, UI servers) for even local development.
-- Framework‑specific domain concepts that leak into business logic.
-- Slow iteration loops for simple, local, Pythonic pipelines.
 
 `auto-workflow` targets a different sweet spot:
 
@@ -55,7 +54,6 @@ Existing platforms (Airflow, Prefect, Dagster, Luigi) solve orchestration at sca
 
 Core values: **No mandatory DB**, **no daemon**, **no CLI bureaucracy**, **opt‑in persistence**, **first-class async**, **predictable concurrency**, **explicit data flow**.
 
----
 
 ## Philosophy & Design Principles
 | Principle | Description |
@@ -70,24 +68,11 @@ Core values: **No mandatory DB**, **no daemon**, **no CLI bureaucracy**, **opt�
 | Zero Hidden State | No implicit global registry; registration is explicit or decorator‑driven with clear import semantics. |
 | Performance Conscious | Support high‑throughput local pipelines via async & thread/process pools with minimal overhead. |
 
----
 
 ## Feature Overview
 Planned / partially implemented capabilities:
 
-- Declarative or programmatic flow construction (builder & functional styles).
-- Execution modes per task: async (coroutines), thread offload for sync functions, and optional process offload for CPU-bound work.
-- Rich dependency modeling: simple chaining, diamond graphs, fan‑out/fan‑in, conditional branches.
-- Dynamic task generation (bounded & explicit) for scalable mapping patterns.
-- Retry policies (fixed, exponential backoff, jitter) and per‑task overrides.
-- Timeouts & cancellation propagation.
-- Structured results & artifact passing (in‑memory default, optional external storage providers later: S3, Redis, filesystem, object store).
-- Execution context injection (e.g., run id, logger, parameters, secrets interface).
-- Middleware & event bus for audit, metrics, tracing (OpenTelemetry friendly).
-- Pluggable serialization (default: cloudpickle / msgpack hybrid once implemented) for cross-process handoff.
-- (Future) Optional local web UI / introspection JSON API—decoupled, not required.
 
----
 
 ## Quick Start
 > NOTE: Actual implementation code may still be in progress; examples illustrate the intended public API.
@@ -136,7 +121,6 @@ if __name__ == "__main__":
 python -m auto_workflow run path.to.pipeline:pipeline
 ```
 
----
 
 ## Core Concepts
 ### Task
@@ -157,19 +141,12 @@ Flow-level runtime parameters passed at `.run(params={...})` enabling configurab
 ### Artifacts
 Structured results (maybe large) that can optionally be stored externally; default is in‑memory pass‑through.
 
----
 
 ## Execution Modes
 Tasks run using one of three simple modes:
-- async: if the task function is a coroutine, it is awaited directly.
-- thread: synchronous functions are offloaded to a thread via `asyncio.to_thread` by default.
-- process: opt-in via `@task(run_in="process")` to execute in a shared `ProcessPoolExecutor` using cloudpickle for argument/result handoff.
 
 Mode selection:
-- Inferred automatically: async for `async def`, otherwise thread.
-- Overridable per task using the `run_in` parameter.
 
----
 
 ## Building Flows & DAGs
 Two equivalent approaches (both may be supported):
@@ -194,7 +171,6 @@ Two equivalent approaches (both may be supported):
    flow.run()
    ```
 
----
 
 ## Dynamic Fan-Out / Conditional Branching
 Dynamic forks are explicit to preserve introspection & safety:
@@ -225,14 +201,9 @@ def conditional_flow(flag: bool):
 ```
 `fan_out` constructs a bounded dynamic subgraph; a future `fan_in` utility may allow explicit barrier semantics.
 
----
 
 ## Result Handling, Caching & Idempotency
 Strategies (planned):
-- **In‑memory ephemeral** (default for local dev).
-- **Deterministic Cache Keys**: Provide a `cache_key_fn(args, kwargs, code_signature)` returning a hash; cached results reused within TTL.
-- **Artifact Stores**: FileSystem, S3, Redis (plugin architecture).
-- **Idempotent Mode**: If enabled, tasks with same deterministic key & success state are skipped.
 
 Example (concept):
 ```python
@@ -241,7 +212,6 @@ def expensive(x: int) -> int:
 	return do_work(x)
 ```
 
----
 
 ## Retries, Timeouts & Failure Semantics
 Per-task configuration:
@@ -250,16 +220,10 @@ Per-task configuration:
 def flaky(): ...
 ```
 Failure policy options (proposed):
-- `fail_fast` (default): Downstream tasks skipped.
-- `continue_on_failure`: Mark output as failed placeholder, allow partial DAG progress.
-- `propagate=false`: Collect all failures, raise aggregate at flow end.
 
----
 
 ## Hooks, Events & Middleware
 Lifecycle hook points:
-- Flow: `on_start`, `on_complete`, `on_failure`.
-- Task: `before_run`, `after_run`, `on_retry`, `on_error`.
 
 Middleware chain (similar to ASGI / HTTP frameworks):
 ```python
@@ -276,7 +240,6 @@ def timing_middleware(next_call):
 
 Event bus emission (planned): structured events -> pluggable sinks (stdout logger, OTLP exporter, WebSocket UI).
 
----
 
 ## Configuration & Environment
 Minimal first-class configuration (future `pyproject.toml` block):
@@ -288,17 +251,10 @@ max-dynamic-tasks = 2048
 ```
 Environment overrides are available for documented keys (see docs/configuration.md).
 
----
 
 ## Observability (Logging, Metrics, Tracing)
 Implemented surface + extensions you can plug in:
-- **Logging**: Structured pretty logging enabled by default with a stdout handler; you can disable structured logs or change level via env. See docs/observability.md for details.
-- **Metrics**: In‑memory provider (extensible to Prometheus / StatsD).
-- **Tracing**: Lightweight span hooks (flow + tasks). Swap tracer via `set_tracer()` for OpenTelemetry integration.
-- **Introspection**: `flow.describe()`, `flow.export_dot()`, `flow.export_graph()`.
-- **Graph Export**: DOT + adjacency JSON for visualizers (e.g., Graphviz / d3).
 
----
 
 ## Extensibility Roadmap
 | Extension | Interface | Status |
@@ -312,14 +268,9 @@ Implemented surface + extensions you can plug in:
 | Scheduling layer | External module | Backlog |
 | UI / API | Optional service | Backlog |
 
----
 
 ## Security & Isolation Considerations
-- No implicit code execution from untrusted config (Python code only under developer control).
-- Sandboxing for untrusted tasks intentionally out of scope initially; may be introduced via containerized executor.
-- Secret handling abstraction (planned) to fetch ephemeral credentials (plugins: env vars, HashiCorp Vault).
 
----
 
 ## Comparison with Airflow & Prefect
 | Aspect | auto-workflow | Airflow | Prefect |
@@ -332,7 +283,6 @@ Implemented surface + extensions you can plug in:
 | Plugin surface | Lean, Pythonic | Large | Large |
 | Setup time | Seconds | Minutes+ | Minutes |
 
----
 
 ## Project Structure (Proposed)
 ```
@@ -358,7 +308,6 @@ examples/
 docs/
 ```
 
----
 
 ## FAQ
 **Q: Is persistence required?**  No—default run is ephemeral in memory.
@@ -373,30 +322,9 @@ docs/
 
 **Q: Scheduling / cron?** Out of core scope—provide a thin adapter so external schedulers (cron, systemd timers, GitHub Actions) can invoke flows.
 
----
 
 ## Roadmap
-- [x] Implement core Task & Flow abstractions
-- [x] Per-task execution modes (async/thread/process)
-- [x] Deterministic DAG builder & cycle detection
-- [x] Basic retry/timeout policies
-- [x] Fan-out helper & dynamic mapping (static + runtime expansion)
-- [x] Context + logging instrumentation
-- [x] Result caching interface (memory + filesystem)
-- [x] Metrics & tracing hooks (instrumented spans)
-- [x] Pluggable artifact storage (memory + filesystem)
-- [x] Minimal introspection CLI (run, describe, list)
-- [x] Task priority scheduling
-- [x] Cancellation support
-- [x] Graph export (DOT / JSON)
-- [x] Benchmark harness (local throughput)
-- [x] Secrets provider abstraction (env, static mapping stubs)
-- [ ] Advanced tracing exporters (OpenTelemetry integration)
-- [ ] External secrets providers (Vault, AWS SM)
-- [ ] UI prototype / visualization
-- [ ] Packaging & first PyPI release
 
----
 
 ## Examples Overview
 Explore runnable examples in `examples/` (also rendered in the online docs):
@@ -417,7 +345,6 @@ python examples/tracing_custom.py
 
 For more narrative documentation see the [Examples page](https://stoiandl.github.io/auto-workflow/examples/).
 
----
 
 ## Contributing
 Contributions are welcome once the core API draft solidifies. Until then:
@@ -428,23 +355,19 @@ Contributions are welcome once the core API draft solidifies. Until then:
 
 Planned contribution guides: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`.
 
----
 
 ## Versioning & Stability
 Pre-1.0: **Breaking changes can occur in minor releases**. After 1.0 we will follow [Semantic Versioning](https://semver.org/).
 
 Migration notes will be maintained in `CHANGELOG.md` (to be added).
 
----
 
 ## License
 This project is licensed under the GNU General Public License v3.0. See `LICENSE` for details. If you need alternate licensing, open an issue to discuss.
 
----
 
 ## Legal / Disclaimer
 This project is experimental; do not deploy to critical production paths until a 1.0 release is tagged. Feedback welcomed to refine design decisions.
 
----
 
 Happy orchestrating! 🚀
