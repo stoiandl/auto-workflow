@@ -296,6 +296,12 @@ async def execute_dag(
                             if o is target:
                                 replaced = True
                                 return list(target)
+                            # Do not traverse into unrelated DynamicFanOut placeholders;
+                            # treat them as atomic until their own expansion pass.
+                            from .fanout import DynamicFanOut as _DF
+
+                            if isinstance(o, _DF):
+                                return o
                             if isinstance(o, list):
                                 return [_walk(x, target) for x in o]
                             if isinstance(o, tuple):
