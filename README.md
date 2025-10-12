@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-	<source media="(prefers-color-scheme: dark)" srcset="assets/logo.svg" />
-		<img alt="auto-workflow" src="assets/logo.svg" width="560" />
+	<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/stoiandl/auto-workflow/main/assets/logo.svg" />
+		<img alt="auto-workflow" src="https://raw.githubusercontent.com/stoiandl/auto-workflow/main/assets/logo.svg" width="560" />
 </picture>
 
 # auto-workflow
@@ -14,7 +14,7 @@
 
 _A lightweight, zero-bloat, developer‑first workflow & task orchestration engine for Python._
 
-**Status:** Early design / scaffolding phase (APIs stabilizing). **Goal:** Production‑grade minimal core with pluggable power features.
+**Status:** Alpha (APIs stabilizing). **Goal:** Production‑grade minimal core with pluggable power features.
 
 </div>
 
@@ -81,20 +81,15 @@ Planned / partially implemented capabilities:
 
 
 ## Quick Start
-> NOTE: Actual implementation code may still be in progress; examples illustrate the intended public API.
-
-### Install
+Install from PyPI:
 
 ```bash
-# Local development (using Poetry)
-poetry install --with dev
-# Run tools via Poetry
-poetry run pytest -q
-poetry run ruff check .
-poetry run pre-commit install
+pip install auto-workflow
 ```
 
-Run tests with coverage locally:
+Or for local development with Poetry:
+
+Run tests locally:
 
 ```bash
 poetry run pytest --cov=auto_workflow --cov-report=term-missing
@@ -128,9 +123,22 @@ if __name__ == "__main__":
 	print(result)
 ```
 
-### Basic CLI (Planned)
+### CLI
 ```bash
 python -m auto_workflow run path.to.pipeline:pipeline
+```
+
+List and describe flows:
+
+```bash
+python -m auto_workflow list path.to.module
+python -m auto_workflow describe path.to.pipeline:pipeline
+```
+
+If installed via pip, a console script is also available:
+
+```bash
+auto-workflow run path.to.pipeline:pipeline
 ```
 
 
@@ -383,3 +391,5 @@ This project is experimental; do not deploy to critical production paths until a
 
 
 Happy orchestrating! 🚀
+
+Note on releases: Publishing to PyPI is performed by CI when a tag `vX.Y.Z` is pushed to the repository. We use PyPI Trusted Publishing; no local uploads are required.

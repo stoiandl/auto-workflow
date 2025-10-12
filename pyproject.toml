@@ -7,11 +7,27 @@ readme = "README.md"
 packages = [{ include = "auto_workflow" }]
 license = "GPL-3.0-or-later"
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
 ]
 homepage = "https://github.com/stoiandl/auto-workflow"
 repository = "https://github.com/stoiandl/auto-workflow"
 documentation = "https://stoiandl.github.io/auto-workflow/"
+
+# Include non-Python files required by users or README rendering
+include = [
+    "auto_workflow/py.typed",
+    "assets/logo.svg",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
@@ -28,6 +44,7 @@ pytest-asyncio = "^0.23.0"
 pytest-cov = "^6.0.0"
 mkdocs = "^1.6.0"
 mkdocs-material = "^9.5.0"
+twine = "^5.1.0"
 
 
 # Ruff configuration
@@ -114,3 +131,6 @@ exclude_lines = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+auto-workflow = "auto_workflow.cli:main"

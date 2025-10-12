@@ -1,0 +1,126 @@
+name: pypi-flow
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v3
+        with:
+          poetry-version: '1.8.3'
+
+      - name: Configure Poetry virtualenv
+        run: |
+          poetry config virtualenvs.create true
+          poetry config installer.parallel true
+
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies (poetry)
+        run: |
+          poetry install --with dev --no-interaction --no-ansi
+
+      - name: Lint (ruff)
+        run: |
+          poetry run ruff check .
+          poetry run ruff format --check .
+
+      - name: Run unit tests with coverage (fail under 90%)
+        run: |
+          rm -f .coverage .coverage.* coverage.xml || true
+          poetry run pytest -q --cov=auto_workflow --cov-branch --cov-report=xml --cov-report=term-missing
+
+      - name: Build distributions
+        run: poetry build
+
+      - name: Verify tag commit is on main
+        run: |
+          git fetch --no-tags origin main
+          echo "Tag commit: $GITHUB_SHA"
+          echo "Main head: $(git rev-parse origin/main)"
+          BASE=$(git merge-base $GITHUB_SHA origin/main)
+          if [ "$BASE" != "$GITHUB_SHA" ]; then
+            echo "Refusing to publish: tag does not point to a commit on main." >&2
+            exit 1
+          fi
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  publish-testpypi:
+    if: contains(github.ref_name, '-rc')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish to TestPyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
+
+  publish-pypi:
+    if: ${{ !contains(github.ref_name, '-rc') }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+
+  github-release:
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-rc') }}
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true

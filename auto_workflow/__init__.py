@@ -1,5 +1,11 @@
 """Public API surface for auto_workflow (MVP scaffolding)."""
 
+try:  # pragma: no cover - best-effort version exposure
+    from importlib.metadata import version as _pkg_version
+    __version__ = _pkg_version("auto-workflow")
+except Exception:  # pragma: no cover
+    __version__ = "0"
+
 from .context import get_context
 from .events import subscribe
 from .fanout import fan_out
