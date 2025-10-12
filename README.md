@@ -11,7 +11,7 @@
 [![Docs build](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml/badge.svg?branch=main&event=push)](https://github.com/stoiandl/auto-workflow/actions/workflows/docs.yml)
 [![Coverage Status](https://img.shields.io/codecov/c/github/stoiandl/auto-workflow/main?logo=codecov&label=coverage)](https://app.codecov.io/gh/stoiandl/auto-workflow)
 [![PyPI](https://img.shields.io/pypi/v/auto-workflow.svg?logo=pypi&label=PyPI)](https://pypi.org/project/auto-workflow/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/auto-workflow.svg?label=downloads)](https://pypi.org/project/auto-workflow/)
+[![Downloads](https://static.pepy.tech/badge/auto-workflow/month)](https://pepy.tech/project/auto-workflow)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://stoiandl.github.io/auto-workflow/) [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 _A lightweight, zero-bloat, developer‑first workflow & task orchestration engine for Python._
