@@ -77,26 +77,9 @@ jobs:
           name: dist
           path: dist/*
 
-  publish-testpypi:
-    if: contains(github.ref_name, '-rc')
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - name: Download dist artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: Publish to TestPyPI (Trusted Publishing)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          print-hash: true
 
   publish-pypi:
-    if: ${{ !contains(github.ref_name, '-rc') }}
+  # Publish for all version tags v*
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -107,7 +90,15 @@ jobs:
         with:
           name: dist
           path: dist
+      - name: Publish to PyPI (API token)
+        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          print-hash: true
+
       - name: Publish to PyPI (Trusted Publishing)
+        if: ${{ secrets.PYPI_API_TOKEN == '' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
