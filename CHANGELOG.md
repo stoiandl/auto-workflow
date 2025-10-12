@@ -11,6 +11,16 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 - More cache/artifact backends and configuration surface
 - Extended metrics/tracing providers and middleware library
 
+## [0.1.1] - 2025-10-12
+### Fixed
+- **BREAKING FIX**: Corrected documentation examples that showed invalid `[square(n) for n in nums]` pattern which doesn't work since `nums` is a `TaskInvocation`, not an iterable
+- All examples now correctly use `fan_out(square, nums)` for dynamic fan-out
+- Removed references to non-existent `FlowBuilder` API
+- Updated installation instructions with correct GitHub repository URL
+- Fixed feature status from "planned" to accurate implementation status
+- Corrected API reference documentation to match actual exports
+- Updated configuration and extensibility documentation
+
 ## [0.1.0] - 2025-10-12
 Initial alpha release.
 

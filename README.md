@@ -81,7 +81,7 @@ Core capabilities:
 
 - **Task Definition**: `@task` decorator with retry, timeout, caching, and execution mode options
 - **Flow Orchestration**: `@flow` decorator for building DAGs with automatic dependency resolution
-- **Dynamic Fan-Out**: `fan_out()` for runtime task creation based on upstream results  
+- **Dynamic Fan-Out**: `fan_out()` for runtime task creation based on upstream results
 - **Multiple Execution Modes**: async, thread pool, and process pool execution
 - **Caching & Artifacts**: Task result caching and large result persistence
 - **Observability**: Built-in logging, metrics, tracing, and event system
@@ -271,7 +271,7 @@ Event bus: structured events with pluggable subscribers for custom logging and m
 
 ## Configuration & Environment
 Configuration via environment variables:
-- `AUTO_WORKFLOW_LOG_LEVEL`: Set logging level (default: INFO)  
+- `AUTO_WORKFLOW_LOG_LEVEL`: Set logging level (default: INFO)
 - `AUTO_WORKFLOW_DISABLE_STRUCTURED_LOGS`: Disable structured logging
 - `AUTO_WORKFLOW_MAX_DYNAMIC_TASKS`: Limit dynamic task expansion
 
@@ -282,7 +282,7 @@ See docs/configuration.md for full details.
 Built-in observability features:
 
 - **Structured Logging**: Automatic JSON-formatted logging with task/flow context
-- **Metrics**: Pluggable metrics providers (in-memory and custom backends)  
+- **Metrics**: Pluggable metrics providers (in-memory and custom backends)
 - **Tracing**: Task and flow execution spans for performance monitoring
 - **Events**: Pub/sub event system for task lifecycle hooks
 - **Middleware**: Chain custom logic around task execution
@@ -293,7 +293,7 @@ Built-in observability features:
 |-----------|-----------|--------|
 | Storage backend | `ArtifactStore` | ✅ Implemented |
 | Cache backend | `ResultCache` | ✅ Implemented |
-| Metrics provider | `MetricsProvider` | ✅ Implemented |  
+| Metrics provider | `MetricsProvider` | ✅ Implemented |
 | Tracing adapter | `Tracer` | ✅ Implemented |
 | Secrets provider | `SecretsProvider` | ✅ Implemented |
 | Event middleware | Middleware chain | ✅ Implemented |
