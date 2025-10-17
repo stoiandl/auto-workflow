@@ -31,7 +31,7 @@ pre-commit install
 - For non‑trivial work, include a short "Design notes" section in the PR description
   covering approach, alternatives considered, and risks/rollout.
 - Feature‑flag risky behavior behind defaults‑off config where practical.
-- Update `CHANGELOG.md` under `[0.1.2] - Unreleased` with clear Added/Changed/Fixed.
+- Update `CHANGELOG.md` under `[LATEST_UNRELEASED_VERSION] - Unreleased` with clear Added/Changed/Fixed.
 
 ## Compatibility & API policy
 - Do not break public APIs silently. Use deprecations with clear migration notes.
@@ -66,7 +66,7 @@ pre-commit install
 1) Branch from `main`: `feat/<scope>` | `fix/<scope>` | `docs/<scope>`.
 2) Implement minimal cohesive changes in `auto_workflow/` (+ tests + docs).
 3) Update docs in `docs/` and examples in `examples/` if behavior changes.
-4) Update `CHANGELOG.md` under `[0.1.2] - Unreleased`.
+4) Update `CHANGELOG.md` under `[LATEST_UNRELEASED_VERSION] - Unreleased`.
 
 ## Quality gates (must all pass locally)
 ```zsh
@@ -101,7 +101,7 @@ Acceptance criteria:
 - [ ] Single‑scope change; no unrelated modifications
 - [ ] Public API unchanged or deprecation path documented
 - [ ] Docs updated (docs/, README) and examples if applicable
-- [ ] CHANGELOG.md updated under [0.1.2] - Unreleased
+- [ ] CHANGELOG.md updated under [LATEST_UNRELEASED_VERSION] - Unreleased
 - [ ] Tests added/updated; new behavior covered to 100%
 - [ ] All tests pass locally; overall cov ≥ 92%
 - [ ] Ruff check and format pass
