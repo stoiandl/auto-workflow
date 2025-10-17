@@ -4,12 +4,31 @@ All notable changes to this project will be documented in this file.
 
 This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 releases may contain breaking changes in minor versions.
 
-## [Unreleased]
-### Planned
-- Executor plugins and additional failure policies
-- Richer DAG visualizations and export formats
-- More cache/artifact backends and configuration surface
-- Extended metrics/tracing providers and middleware library
+## [0.1.2] - Unreleased
+### Added
+- CLI validation: `--failure-policy` choices enforced; friendly errors for bad module/object paths; reject non-positive `--max-concurrency`.
+- Artifact store FS backend test coverage with `artifact_serializer=json`.
+- Fail-fast cancellation test ensuring pending tasks are cancelled before error propagation.
+- Comprehensive tests for dynamic fan-out graph representation:
+	- Simple dynamic mapping, nested fan-out (2–3 levels), sibling fan-outs merged downstream,
+		and multiple consumers sharing the same fan-out.
+- `AGENT_INSTRUCTIONS.md`: a stricter, end-to-end guide tailored for automated agents contributing to this repo (one-scope PRs, docs/README/changelog updates, 100% coverage for new code, pre-commit, and CI parity commands).
+
+### Changed
+- FileSystemArtifactStore no longer keeps duplicate in-memory copies; writes/reads directly to disk, reducing memory footprint.
+- Scheduler fail-fast path now proactively cancels in-flight tasks before raising, improving determinism.
+- `Flow.describe()` now models dynamic fan-outs explicitly as barrier nodes (`fanout:{n}`),
+	deduplicates multi-consumers, and propagates transitive dependencies so downstream nodes
+	correctly reference all relevant fan-out barriers.
+- `Flow.export_dot()` renders fan-out barriers as diamond-shaped nodes labeled `fan_out(task)`
+	and wires `source -> fanout -> consumer`, including fanout-of-fanout chains.
+
+### Fixed
+- Incorrect/missing dynamic fan-out edges in `describe()`/`export_dot()` for nested mapping and
+	multi-branch scenarios; graphs now reflect true execution ordering without duplicate edges.
+ - DOT export now suppresses direct edges from original sources when a dynamic `fan_out` barrier
+	 mediates the dependency. Graphs correctly render `source -> fanout -> ... -> consumer` without
+	 bypass edges (e.g., no `load_numbers -> aggregate` when fan-outs are present).
 
 ## [0.1.1] - 2025-10-12
 ### Fixed

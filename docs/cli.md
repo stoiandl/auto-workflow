@@ -19,6 +19,11 @@ python -m auto_workflow.cli list path.to.module
 
 ## Options
 - `--failure-policy` (fail_fast | continue | aggregate)
-- `--max-concurrency INT`
+- `--max-concurrency INT` (must be a positive integer)
+
+### Errors & validation
+- If the `module:object` cannot be imported or found, the CLI exits with a helpful error message.
+- Invalid `--failure-policy` values are rejected.
+- Non-positive values for `--max-concurrency` are rejected.
 
 (Subject to enhancement; see roadmap.)

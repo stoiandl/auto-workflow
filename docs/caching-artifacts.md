@@ -35,6 +35,9 @@ val = get_store().get(ref)
 ### Artifact Backends
 - Memory (default)
 - Filesystem (`artifact_store = "filesystem"`, directory `artifact_store_path`, default `.aw_artifacts`)
+    - Serializer: `artifact_serializer = "pickle"` (default) or `"json"` (JSON-serializable values only).
+    - Security note: Pickle is only safe in trusted environments; prefer `json` for simple types.
+    - Implementation writes/reads directly to disk to avoid keeping duplicate in-memory copies in the FS backend.
 
 ## Choosing Between Cache & Artifact
 | Use Case | Mechanism |
