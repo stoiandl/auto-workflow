@@ -33,6 +33,10 @@ print(two_step.export_dot())      # DOT format
 print(two_step.export_graph())    # adjacency JSON
 ```
 
+When using dynamic fan-out (`fan_out(...)`), DOT export renders barrier nodes (`fanout:n`) as
+diamonds and wires dependencies through them. This removes any direct shortcut edges from the
+original source to downstream consumers, ensuring the visual ordering matches execution.
+
 ## Parameters
 Pass runtime parameters:
 ```python

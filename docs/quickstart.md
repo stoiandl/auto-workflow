@@ -67,6 +67,9 @@ Render with Graphviz:
 dot -Tpng pipeline.dot -o pipeline.png
 ```
 
+Note: If your flow uses dynamic fan-out, the DOT will include diamond-shaped barrier nodes (fanout:n),
+and edges from the original source to downstream nodes will route through these barriers.
+
 ## Add a Retry & Timeout
 ```python
 @task(retries=3, retry_backoff=1.0, retry_jitter=0.2, timeout=10)

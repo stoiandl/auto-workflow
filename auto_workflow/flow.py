@@ -202,6 +202,9 @@ class Flow:
         # Assign ids to fanouts and create DAG nodes
         dag = DAG()
         fanout_id_map: dict[int, str] = {}
+        # fanout id (e.g. "fanout:1") -> its immediate source
+        # (either an invocation name or another fanout id)
+        fanout_source_by_id: dict[str, str] = {}
 
         for idx, df in enumerate(dynamic_placeholders, start=1):
             fid = f"fanout:{idx}"
@@ -214,16 +217,51 @@ class Flow:
             fid = fanout_id_map[id(df)]
             if hasattr(df._source, "name"):
                 dag.add_edge(df._source.name, fid)
+                fanout_source_by_id[fid] = df._source.name
             else:
                 # Nested: parent is another fanout
                 parent = fanout_id_map.get(id(df._source))
                 if parent:
                     dag.add_edge(parent, fid)
+                    fanout_source_by_id[fid] = parent
+
+        # Build adjacency for transitive propagation (name -> list of consumers)
+        consumers_by_name: dict[str, list[str]] = {}
+        for inv in invocations:
+            for up in inv.upstream:
+                consumers_by_name.setdefault(up, []).append(inv.name)
+
+        # Map each DynamicFanOut placeholder to its id and gather direct consumers
+        fanout_direct_consumers: dict[str, list[str]] = {fid: [] for fid in fanout_source_by_id}
+        for inv in invocations:
+            args_and_kwargs = list(inv.args) + list(inv.kwargs.values())
+            for arg in args_and_kwargs:
+                if isinstance(arg, DynamicFanOut):
+                    fid = fanout_id_map.get(id(arg))
+                    if fid:
+                        fanout_direct_consumers.setdefault(fid, []).append(inv.name)
+
+        # Precompute transitive consumers per fanout barrier
+        # (including downstream of its direct consumers)
+        transitive_consumers: dict[str, set[str]] = {}
+        for fid, direct in fanout_direct_consumers.items():
+            seen: set[str] = set()
+            work: list[str] = list(direct)
+            while work:
+                cur = work.pop()
+                if cur in seen:
+                    continue
+                seen.add(cur)
+                for nxt in consumers_by_name.get(cur, []):
+                    if nxt not in seen:
+                        work.append(nxt)
+            transitive_consumers[fid] = seen
 
         # Add invocation nodes and wire upstream using fanout barriers where applicable
         for inv in invocations:
             dag.add_node(inv.name)
             effective_up: set[str] = set(inv.upstream)
+            included_fids: set[str] = set()
             for arg in list(inv.args) + list(inv.kwargs.values()):
                 if isinstance(arg, DynamicFanOut):
                     # Replace raw source with fanout barrier id
@@ -232,8 +270,27 @@ class Flow:
                     fid = fanout_id_map.get(id(arg))
                     if fid:
                         effective_up.add(fid)
+                        included_fids.add(fid)
                         # Ensure edge fanout -> consumer exists
                         dag.add_edge(fid, inv.name)
+            # Add transitive fanout dependencies to upstream set (no direct edge created here)
+            for fid, reached in transitive_consumers.items():
+                if inv.name in reached:
+                    effective_up.add(fid)
+                    included_fids.add(fid)
+
+            # Suppress raw upstream that are ancestors of any included fanout barrier
+            suppressed: set[str] = set()
+            for fid in included_fids:
+                cur = fanout_source_by_id.get(fid)
+                while cur:
+                    suppressed.add(cur)
+                    # If the current source is itself a fanout id, walk up the chain
+                    if cur in fanout_source_by_id:
+                        cur = fanout_source_by_id[cur]
+                    else:
+                        break
+            effective_up -= suppressed
             for up in sorted(effective_up):
                 # Avoid duplicating edges already added for fanout -> consumer
                 if up not in fanout_id_map.values():

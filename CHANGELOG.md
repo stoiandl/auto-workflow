@@ -4,21 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 releases may contain breaking changes in minor versions.
 
-## [Unreleased]
-### Planned
-- Executor plugins and additional failure policies
-- Richer DAG visualizations and export formats
-- More cache/artifact backends and configuration surface
-- Extended metrics/tracing providers and middleware library
-
-### Added
-- `AGENT_INSTRUCTIONS.md`: a stricter, end-to-end guide tailored for automated agents contributing to this repo (one-scope PRs, docs/README/changelog updates, 100% coverage for new code, pre-commit, and CI parity commands).
-
-## [0.1.2] - 2025-10-12
+## [0.1.2] - Unreleased
 ### Added
 - Comprehensive tests for dynamic fan-out graph representation:
 	- Simple dynamic mapping, nested fan-out (2–3 levels), sibling fan-outs merged downstream,
 		and multiple consumers sharing the same fan-out.
+- `AGENT_INSTRUCTIONS.md`: a stricter, end-to-end guide tailored for automated agents contributing to this repo (one-scope PRs, docs/README/changelog updates, 100% coverage for new code, pre-commit, and CI parity commands).
 
 ### Changed
 - `Flow.describe()` now models dynamic fan-outs explicitly as barrier nodes (`fanout:{n}`),
@@ -30,6 +21,9 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 ### Fixed
 - Incorrect/missing dynamic fan-out edges in `describe()`/`export_dot()` for nested mapping and
 	multi-branch scenarios; graphs now reflect true execution ordering without duplicate edges.
+ - DOT export now suppresses direct edges from original sources when a dynamic `fan_out` barrier
+	 mediates the dependency. Graphs correctly render `source -> fanout -> ... -> consumer` without
+	 bypass edges (e.g., no `load_numbers -> aggregate` when fan-outs are present).
 
 ## [0.1.1] - 2025-10-12
 ### Fixed
