@@ -11,6 +11,9 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 - More cache/artifact backends and configuration surface
 - Extended metrics/tracing providers and middleware library
 
+### Added
+- `AGENT_INSTRUCTIONS.md`: a stricter, end-to-end guide tailored for automated agents contributing to this repo (one-scope PRs, docs/README/changelog updates, 100% coverage for new code, pre-commit, and CI parity commands).
+
 ## [0.1.2] - 2025-10-12
 ### Added
 - Comprehensive tests for dynamic fan-out graph representation:

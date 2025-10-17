@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing! This guide explains how to get a local dev environment running, coding standards, quality gates, and how to submit changes. Small fixes are welcome; larger proposals should start with an issue for discussion.
 
+If you're an automated coding agent, please follow the stricter, step-by-step workflow in `AGENT_INSTRUCTIONS.md`.
+
 ## TL;DR
 - Use Python 3.12+ and Poetry
 - Lint and format with Ruff
