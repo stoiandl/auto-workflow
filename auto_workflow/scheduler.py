@@ -227,6 +227,12 @@ async def execute_dag(
             task = pending_tasks.pop(fname)
             exc = task.exception()
             if exc:
+                # Ensure we cancel any remaining tasks before propagating the error,
+                # so fail-fast never leaves background work running.
+                for t in pending_tasks.values():
+                    t.cancel()
+                if pending_tasks:
+                    await asyncio.gather(*pending_tasks.values(), return_exceptions=True)
                 raise exc
             # After task success, check if any dynamic fan-outs depend on it
             from .fanout import DynamicFanOut

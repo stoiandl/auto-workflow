@@ -47,16 +47,19 @@ def get_store() -> InMemoryArtifactStore:
     return _STORE  # fallback
 
 
-class FileSystemArtifactStore(InMemoryArtifactStore):  # simple extension
+class FileSystemArtifactStore:  # independent backend; no memory retention
     def __init__(self, root: Path) -> None:
-        super().__init__()
         self.root = root
+        self.root.mkdir(parents=True, exist_ok=True)
         # serializer: "pickle" (default) or "json" for JSON-serializable values
         self.serializer = load_config().get("artifact_serializer", "pickle")
 
-    def put(self, value: Any) -> ArtifactRef:  # type: ignore[override]
-        ref = super().put(value)
-        path = self.root / ref.key
+    def _path(self, key: str) -> Path:
+        return self.root / key
+
+    def put(self, value: Any) -> ArtifactRef:
+        key = str(uuid.uuid4())
+        path = self._path(key)
         with path.open("wb") as f:
             # best-effort file lock (POSIX); on macOS this is fine, Windows would need msvcrt
             try:
@@ -80,40 +83,46 @@ class FileSystemArtifactStore(InMemoryArtifactStore):  # simple extension
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             except Exception:
                 pass
-        return ref
+        return ArtifactRef(key)
 
-    def get(self, ref: ArtifactRef) -> Any:  # type: ignore[override]
-        path = self.root / ref.key
-        if path.exists():
-            with path.open("rb") as f:
+    def get(self, ref: ArtifactRef) -> Any:
+        path = self._path(ref.key)
+        if not path.exists():
+            raise KeyError(f"Artifact not found: {ref.key}")
+        with path.open("rb") as f:
+            try:
+                import fcntl
+
+                fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+            except Exception:
+                pass
+            if self.serializer == "json":
+                import json
+
+                data = f.read()
                 try:
                     import fcntl
 
-                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
                 except Exception:
                     pass
-                if self.serializer == "json":
-                    import json
+                return json.loads(data.decode())
+            else:
+                import pickle
 
-                    data = f.read()
+                try:
+                    obj = pickle.load(f)
+                finally:
                     try:
                         import fcntl
 
-                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                        fcntl.flock(f.fileno(), fcntl.LockFlags.LOCK_UN)  # type: ignore[attr-defined]
                     except Exception:
-                        pass
-                    return json.loads(data.decode())
-                else:
-                    import pickle
-
-                    try:
-                        obj = pickle.load(f)
-                    finally:
+                        # Fallback for Python versions without LockFlags
                         try:
-                            import fcntl
+                            import fcntl as _fcntl
 
-                            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                            _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
                         except Exception:
                             pass
-                    return obj
-        return super().get(ref)
+                return obj
