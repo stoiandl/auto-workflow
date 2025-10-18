@@ -39,7 +39,9 @@ nav:
   - CLI: cli.md
   - Extensibility: extensibility.md
   - Connectors: connectors.md
-  - Examples: examples.md
+  - Examples:
+      - Examples: examples.md
+      - Testing: testing.md
   - API Reference: api-reference.md
 markdown_extensions:
     - toc:

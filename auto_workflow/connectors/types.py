@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any
 
 
@@ -37,9 +37,9 @@ class PostgresConfig:
     password: str | None = None
     sslmode: str | None = "require"
     statement_timeout_ms: int | None = 30000
-    pool: PostgresPoolConfig = PostgresPoolConfig()
-    retries: RetryConfig = RetryConfig()
-    timeouts: TimeoutConfig = TimeoutConfig()
+    pool: PostgresPoolConfig = field(default_factory=PostgresPoolConfig)
+    retries: RetryConfig = field(default_factory=RetryConfig)
+    timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
 
 
 @dataclass(slots=True)
@@ -55,8 +55,10 @@ class S3Config:
     endpoint_url: str | None = None
     use_default_credentials: bool = True
     sse: str | None = None
-    retries: RetryConfig = RetryConfig(attempts=5)
-    timeouts: TimeoutConfig = TimeoutConfig(connect_s=5.0, operation_s=120.0)
+    retries: RetryConfig = field(default_factory=lambda: RetryConfig(attempts=5))
+    timeouts: TimeoutConfig = field(
+        default_factory=lambda: TimeoutConfig(connect_s=5.0, operation_s=120.0)
+    )
     addressing_style: str = "auto"
     credentials: S3Credentials | None = None
 
@@ -66,13 +68,16 @@ class ADLS2Config:
     account_url: str | None = None
     use_default_credentials: bool = True
     credential: str | None = None  # SAS or key or client secret reference
-    retries: RetryConfig = RetryConfig(attempts=5)
-    timeouts: TimeoutConfig = TimeoutConfig(connect_s=5.0, operation_s=60.0)
+    retries: RetryConfig = field(default_factory=lambda: RetryConfig(attempts=5))
+    timeouts: TimeoutConfig = field(
+        default_factory=lambda: TimeoutConfig(connect_s=5.0, operation_s=60.0)
+    )
 
 
 def to_dict(obj: Any) -> dict[str, Any]:
+    if is_dataclass(obj):
+        return asdict(obj)
     if hasattr(obj, "__dict__"):
-        # dataclasses with slots still provide asdict-like through __dict__ for simple cases
         return {k: to_dict(v) for k, v in obj.__dict__.items()}
     if isinstance(obj, (list, tuple)):
         return [to_dict(x) for x in obj]

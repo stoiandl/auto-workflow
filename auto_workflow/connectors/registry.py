@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import asdict, is_dataclass
+from importlib import import_module
 from typing import Any
 
 from ..config import load_config
@@ -63,7 +65,22 @@ def _config_for(name: str, profile: str) -> dict[str, Any]:
 
 def get(name: str, profile: str = "default") -> Connector:
     if name not in _REGISTRY:
-        raise ConfigError(f"connector '{name}' is not registered")
+        # Attempt lazy import of built-in connector module
+        with suppress(Exception):
+            import_module(f"auto_workflow.connectors.{name}")
+        # If the module was previously imported (e.g., tests import the client class
+        # before calling reset()), the import above will be a no-op and registration
+        # won't re-run. In that case, try to find a factory on the module and register it.
+        if name not in _REGISTRY:
+            mod = sys.modules.get(f"auto_workflow.connectors.{name}")
+            if mod is not None:
+                for attr in ("FACTORY", "factory", "_factory"):
+                    fn = getattr(mod, attr, None)
+                    if callable(fn):
+                        register(name, fn)  # type: ignore[arg-type]
+                        break
+        if name not in _REGISTRY:
+            raise ConfigError(f"connector '{name}' is not registered")
     base = _config_for(name, profile)
     # Hash config for cache key (stable json)
     norm = _normalize_config_value(base)

@@ -278,6 +278,55 @@ Configuration via environment variables:
 See docs/configuration.md for full details.
 
 
+## Connectors
+Production-grade connectors are available as optional extras. The first shipped connector is Postgres (psycopg3 pool-backed), with optional SQLAlchemy helpers.
+
+Install:
+
+- pip
+
+```bash
+pip install "auto-workflow[connectors-postgres]"
+# Optional: for SQLAlchemy helpers (engine/session/sessionmaker)
+pip install "auto-workflow[connectors-sqlalchemy]"
+```
+
+- Poetry
+
+```bash
+poetry add auto-workflow -E connectors-postgres
+# Optional: for SQLAlchemy helpers
+poetry add auto-workflow -E connectors-sqlalchemy
+```
+
+Usage (Postgres):
+
+```python
+from auto_workflow.connectors import postgres
+
+with postgres.client("default") as db:
+	rows = db.query("SELECT 1 AS x")
+	print(rows)  # [{"x": 1}]
+```
+
+SQLAlchemy (optional extra):
+
+```python
+from auto_workflow.connectors import postgres
+
+db = postgres.client("default")
+engine = db.sqlalchemy_engine()
+from sqlalchemy.orm import Session
+with Session(engine) as s:
+	# ... use ORM as usual ...
+	pass
+```
+
+See the Connectors page in the docs for more examples, including streaming iteration and reflection: https://stoiandl.github.io/auto-workflow/connectors/
+
+For local testing with Postgres via Docker Compose and running the full suite, see `docs/testing.md`.
+
+
 ## Observability (Logging, Metrics, Tracing)
 Built-in observability features:
 

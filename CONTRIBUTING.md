@@ -10,6 +10,7 @@ If you're an automated coding agent, please follow the stricter, step-by-step wo
 - Tests with pytest; coverage minimum is 90%
 - CI and Codecov must pass; PRs are coverage-gated
 - Docs are built with MkDocs (Material theme)
+ - For full test suite (including Postgres), install optional extras and Docker
 
 ## Getting set up
 
@@ -18,7 +19,8 @@ If you're an automated coding agent, please follow the stricter, step-by-step wo
 2) Install dependencies with Poetry:
 
 ```bash
-poetry install --with dev
+# Full local dev (includes dev tools and connector extras used in tests)
+poetry install --with dev -E connectors-postgres -E connectors-sqlalchemy
 ```
 
 3) (Optional) Install pre-commit hooks:
@@ -31,8 +33,8 @@ poetry run pre-commit install
 
 ```bash
 # Lint and format check
-poetry run ruff check .
 poetry run ruff format --check .
+poetry run ruff check .
 
 # Unit tests with coverage (branch coverage)
 poetry run pytest --cov=auto_workflow --cov-branch --cov-report=term-missing
@@ -55,6 +57,26 @@ poetry run pytest -m core -q
 - Async: Prefer `async`/`await` where appropriate; use `pytest-asyncio` patterns in tests.
 - Docs: If you change public behavior, add or update docs in `docs/` and ensure site builds locally.
 
+## Database-backed tests (Postgres)
+
+The test suite includes Postgres-backed integration tests. By default, our pytest hooks will:
+
+- Start a local Postgres via Docker Compose (`test_helpers/docker-compose.yml`)
+- Wait for readiness, then set the DSN env var for the "example" profile:
+	- `AUTO_WORKFLOW_CONNECTORS_POSTGRES_EXAMPLE__DSN=postgresql://postgres:postgres@127.0.0.1:5432/postgres`
+
+Control via environment variables:
+
+- Set `AW_NO_DOCKER=1` to skip starting Docker Compose (useful if you provide your own DB)
+- Set `AUTO_WORKFLOW_CONNECTORS_POSTGRES_EXAMPLE__DSN=...` to point tests at an external Postgres
+- Set `AW_KEEP_DOCKER=1` to keep the Compose stack running after tests
+
+Tip: You can also run just the Postgres integration suite:
+
+```bash
+poetry run pytest -q tests/integration/postgres/test_postgres_flow_integration.py
+```
+
 ## Quality gates (must pass)
 
 CI enforces the following before merge:
@@ -67,8 +89,9 @@ CI enforces the following before merge:
 Locally you can replicate these gates with:
 
 ```bash
-poetry run ruff check . && poetry run ruff format --check .
+poetry run ruff format --check . && poetry run ruff check .
 poetry run pytest --cov=auto_workflow --cov-branch --cov-report=term-missing
+poetry run mkdocs build --strict
 ```
 
 If coverage is below 90%, please add focused tests. You can view details in the terminal report and, in CI, via the Codecov PR comment.
@@ -88,6 +111,7 @@ If coverage is below 90%, please add focused tests. You can view details in the 
 - [ ] Coverage ≥ 90% (branch coverage)
 - [ ] Docs updated (if applicable)
 - [ ] Changelog entry (if a user-visible change; pending a formal CHANGELOG)
+ - [ ] For connector changes: ensure integration tests run locally (see Postgres notes above)
 
 ### Commit messages
 Use clear, descriptive messages. Conventional Commits style is welcome but not required. Example:

@@ -2,19 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ "**" ]
 
 jobs:
-  build-test:
+  test:
     runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:24.0.6-dind
+        options: >-
+          --privileged=true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -22,12 +26,7 @@ jobs:
       - name: Install Poetry
         uses: abatilo/actions-poetry@v3
         with:
-          poetry-version: '2.2.1'
-
-      - name: Configure Poetry virtualenv
-        run: |
-          poetry config virtualenvs.create true
-          poetry config installer.parallel true
+          poetry-version: '1.8.3'
 
       - name: Cache Poetry
         uses: actions/cache@v4
@@ -37,36 +36,37 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-poetry-
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies (poetry)
+      - name: Install deps
         run: |
-          poetry install --with dev --no-interaction --no-ansi
+          # Install project with dev deps and required extras for Postgres tests
+          poetry install --no-interaction --with dev -E connectors-postgres -E connectors-sqlalchemy
 
-      - name: Lint (ruff)
+      - name: Make wait script executable
+        run: chmod +x test_helpers/wait-for-postgres.sh
+
+      - name: Start services via Docker Compose
+        run: docker compose -f test_helpers/docker-compose.yml up -d
+
+      - name: Wait for Postgres
+        run: ./test_helpers/wait-for-postgres.sh 127.0.0.1 5432
+
+      - name: Set DSN
+        run: echo "AUTO_WORKFLOW_CONNECTORS_POSTGRES_EXAMPLE__DSN=postgresql://postgres:postgres@127.0.0.1:5432/postgres" >> $GITHUB_ENV
+
+      - name: Lint / Docs / Tests
         run: |
-          poetry run ruff check .
+          set -euo pipefail
           poetry run ruff format --check .
-
-      - name: Run unit tests with coverage (fail under 90%)
-        run: |
-          rm -f .coverage .coverage.* coverage.xml || true
-          poetry run pytest -q --cov=auto_workflow --cov-branch --cov-report=xml --cov-report=term-missing
+          poetry run ruff check .
+          poetry run mkdocs build --strict
+          poetry run pytest -q --disable-warnings --maxfail=1 --cov=auto_workflow --cov-branch --cov-report=term-missing --cov-report=xml
 
       - name: Upload coverage to Codecov
+        if: always()
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          verbose: true
+          fail_ci_if_error: true
 
-      - name: Run pre-commit (all files)
-        run: |
-          poetry run pre-commit run --all-files
+      - name: Stop services
+        if: always()
+        run: docker compose -f test_helpers/docker-compose.yml down -v
