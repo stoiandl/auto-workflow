@@ -302,6 +302,78 @@ def test_sqlalchemy_missing_dep_raises(monkeypatch):
         c.sqlalchemy_engine()
 
 
+def test_pool_open_fallbacks_cover_min_size_kwargs(monkeypatch):
+    """Exercise both ConnectionPool fallback branches in open().
+
+    First attempt passes open=True (raises TypeError), second attempt passes **pool_kwargs
+    when min_size is set (also raises TypeError), third attempt succeeds with positional only.
+    """
+    collector: dict = {}
+
+    class DummyPoolKWFail:
+        def connection(self):
+            return PoolCapturing(collector).connection()
+
+        def close(self):
+            collector["closed"] = True
+
+    # ConnectionPool expects only positional arg; keywords cause TypeError
+    # on first and second attempts.
+    fake_pool_mod = types.SimpleNamespace(
+        ConnectionPool=lambda conninfo, **kwargs: (_ for _ in ()).throw(TypeError("bad kw"))
+    )
+    # For the last attempt (positional only), we need a callable that accepts
+    # only conninfo; emulate success when no kwargs are passed.
+    calls = {"count": 0}
+
+    def cp(conninfo, **kwargs):  # type: ignore[no-redef]
+        calls["count"] += 1
+        # First: has open=True -> TypeError; Second: has min_size -> TypeError
+        if kwargs:
+            raise TypeError("kwargs not supported")
+        # Third: no kwargs path, succeed by returning a pool with context manager
+        return PoolCapturing(collector)
+
+    fake_pool_mod = types.SimpleNamespace(ConnectionPool=cp)
+    fake_psycopg = types.SimpleNamespace(rows=types.SimpleNamespace(dict_row=object()))
+    monkeypatch.setitem(pgmod.__dict__, "_ensure_deps", lambda: (fake_psycopg, fake_pool_mod))
+
+    # Set min_size so **pool_kwargs is non-empty and second attempt raises
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__HOST", "h")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__DATABASE", "d")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__USER", "u")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__MIN_SIZE", "1")
+
+    c = get("postgres")
+    with c.connection():
+        pass
+    assert collector.get("connections") is not None
+    assert calls["count"] >= 1
+
+
+def test_begin_sql_defaults_for_unknown_isolation():
+    # Unknown isolation should map to READ COMMITTED and READ WRITE unless readonly
+    from auto_workflow.connectors.postgres import _begin_sql
+
+    s = _begin_sql(isolation="nonsense", readonly=False, deferrable=False)
+    up = s.upper()
+    assert "READ COMMITTED" in up and "READ WRITE" in up
+
+
+def test_error_mapping_lock(monkeypatch):
+    class PoolBoom:
+        @contextmanager
+        def connection(self):
+            raise RuntimeError("could not obtain lock on relation")
+            yield  # pragma: no cover
+
+    inject_psycopg(monkeypatch, PoolBoom())
+    c = get("postgres")
+    with pytest.raises(Exception) as ei:
+        c.query("select 1")
+    assert "transient" in str(ei.value).lower()
+
+
 def test_sqlalchemy_dsn_uses_connect_args(monkeypatch):
     collector: dict = {}
     pool = PoolCapturing(collector)

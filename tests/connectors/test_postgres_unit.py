@@ -127,3 +127,29 @@ def test_error_mapping(monkeypatch):
         c.query("select 1")
     # Should be mapped (TransientError)
     assert "transient" in str(ei.value).lower()
+
+
+def test_conninfo_includes_optional_fields_and_raw_pool(monkeypatch):
+    inject_psycopg_modules(monkeypatch)
+    # Provide full individual fields to trigger _conninfo path
+    import auto_workflow.connectors.postgres as pgmod
+    from auto_workflow.connectors.registry import get as reg_get, reset as reg_reset
+
+    reg_reset()
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__HOST", "h")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__DATABASE", "d")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__USER", "u")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__PASSWORD", "p")
+    monkeypatch.setenv("AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__SSLMODE", "require")
+    monkeypatch.setenv(
+        "AUTO_WORKFLOW_CONNECTORS_POSTGRES_DEFAULT__APPLICATION_NAME",
+        "aw-tests",
+    )
+
+    c = reg_get("postgres")
+    # Opening will construct pool using conninfo; we can't read conninfo directly,
+    # but ensure raw_pool returns a pool instance and connection works
+    pool = c.raw_pool()
+    assert pool is not None
+    with c.connection() as conn:
+        assert conn is not None
