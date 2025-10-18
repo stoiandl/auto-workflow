@@ -313,9 +313,41 @@ Notes:
 - No new default runtime deps. Provide extras in `pyproject.toml`:
   - `connectors-postgres = ["psycopg[binary,pool]>=3.2"]`
   - `connectors-s3 = ["boto3>=1.34"]` (+ optional `aioboto3` for async)
-  - `connectors-adls2 = ["azure-storage-blob>=12.20", "azure-storage-file-datalake>=12.16"]`
+  - `connectors-adls2 = ["azure-storage-blob>=12.27.0", "azure-storage-file-datalake>=12.22.0", "azure-identity>=1.25.1"]`
 - Lazy import in `postgres.py/s3.py/adls2.py`. If missing, raise `ImportError` with actionable message.
 - Tests: unit tests don’t require SDKs (mock import boundaries). Integration tests are marked and skipped if deps or envs missing.
+
+Note: Current Azure SDKs listed above require Python >= 3.9. This project targets Python 3.12+, so the requirement is satisfied.
+
+### Dependency management & Poetry extras (plan)
+We will expose connector dependencies as Poetry extras so users can install only what they need. We won’t add heavy SDKs to default deps.
+
+Proposed `pyproject.toml` snippets (illustrative):
+
+```
+[tool.poetry.dependencies]
+# ... existing deps ...
+psycopg = { version = ">=3.2", optional = true, extras = ["binary"] }
+psycopg_pool = { version = ">=3.2", optional = true }
+boto3 = { version = ">=1.34", optional = true }
+azure-storage-blob = { version = ">=12.27.0", optional = true }
+azure-storage-file-datalake = { version = ">=12.22.0", optional = true }
+azure-identity = { version = ">=1.25.1", optional = true }
+
+[tool.poetry.extras]
+connectors-postgres = ["psycopg", "psycopg_pool"]
+connectors-s3 = ["boto3"]
+connectors-adls2 = ["azure-storage-blob", "azure-storage-file-datalake", "azure-identity"]
+```
+
+Install commands:
+- Postgres: `poetry install -E connectors-postgres`
+- S3: `poetry install -E connectors-s3`
+- ADLS2: `poetry install -E connectors-adls2`
+
+Runtime behavior:
+- Connector modules will lazy‑import their SDKs; if extras aren’t installed, an actionable error is raised with guidance to install the right extra.
+- Unit tests mock imports and don’t require extras. Integration tests will be skipped if extras are missing.
 
 ## Observability
 - Tracing: one span per operation with stable names:
