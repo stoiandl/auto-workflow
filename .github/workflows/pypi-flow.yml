@@ -45,17 +45,29 @@ jobs:
 
       - name: Install dependencies (poetry)
         run: |
-          poetry install --with dev --no-interaction --no-ansi
+          poetry install --with dev --no-interaction --no-ansi -E connectors-postgres -E connectors-sqlalchemy
 
       - name: Lint (ruff)
         run: |
           poetry run ruff check .
           poetry run ruff format --check .
 
-      - name: Run unit tests with coverage (fail under 90%)
+      - name: Make wait script executable
+        run: chmod +x test_helpers/wait-for-postgres.sh
+
+      - name: Start services via Docker Compose
+        run: docker compose -f test_helpers/docker-compose.yml up -d
+
+      - name: Wait for Postgres
+        run: ./test_helpers/wait-for-postgres.sh 127.0.0.1 5432
+
+      - name: Set DSN
+        run: echo "AUTO_WORKFLOW_CONNECTORS_POSTGRES_EXAMPLE__DSN=postgresql://postgres:postgres@127.0.0.1:5432/postgres" >> $GITHUB_ENV
+
+      - name: Run tests with coverage (fail under 90%)
         run: |
           rm -f .coverage .coverage.* coverage.xml || true
-          poetry run pytest -q --cov=auto_workflow --cov-branch --cov-report=xml --cov-report=term-missing
+          poetry run pytest -q --disable-warnings --cov=auto_workflow --cov-branch --cov-report=xml --cov-report=term-missing
 
       - name: Build distributions
         run: poetry build
@@ -76,6 +88,10 @@ jobs:
         with:
           name: dist
           path: dist/*
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f test_helpers/docker-compose.yml down -v
 
 
   publish-pypi:

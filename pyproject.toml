@@ -32,6 +32,9 @@ include = [
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 cloudpickle = ">=3.0.0,<4.0.0"
+psycopg = { version = "^3.2.10", optional = true, extras = ["binary"] }
+psycopg_pool = { version = "^3.2.6", optional = true }
+SQLAlchemy = { version = "^2.0.44", optional = true }
 
 # Optional: define optional dev dependency groups (PEP 735 draft style). If your tooling
 # doesn't yet support this, you can ignore. Pre-commit pins hook versions, so adding
@@ -134,3 +137,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 auto-workflow = "auto_workflow.cli:main"
+
+[tool.poetry.extras]
+# Install with: poetry install -E connectors-postgres
+connectors-postgres = ["psycopg", "psycopg_pool"]
+# Install with: poetry install -E connectors-sqlalchemy
+connectors-sqlalchemy = ["SQLAlchemy"]

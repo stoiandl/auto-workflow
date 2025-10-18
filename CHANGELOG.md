@@ -6,13 +6,41 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 
 ## [0.1.2] - Unreleased
 ### Added
+- Connectors: Postgres client (psycopg3 pool-backed) behind optional extras with:
+	- Query/execute/executemany, transaction context, statement timeouts, streaming via `query_iter`
+	- SQLAlchemy helpers: `sqlalchemy_engine`, `sqlalchemy_sessionmaker`, `sqlalchemy_session`, `sqlalchemy_reflect`
+	- Robust error classification (timeouts, transient deadlocks/serialization, permanent)
+	- Registry lazy import and re-registration for already-imported modules
+	- Comprehensive unit tests with hermetic fakes (no network)
+- Shared environment overlay utilities (`auto_workflow.env_overrides`) with JSON overlay precedence,
+	type coercions, and secret resolution; connector wrapper added and covered by tests
+- VS Code tasks: Poetry-powered gates and formatter tasks for consistent local runs
+- Documentation: Postgres connector usage, extras installation, SQLAlchemy examples, streaming
 - CLI validation: `--failure-policy` choices enforced; friendly errors for bad module/object paths; reject non-positive `--max-concurrency`.
+ - Postgres convenience methods: `query_one`, `query_value` for ergonomic reads.
+ - Postgres pool tuning passthrough: supports `min_size`, `max_size`, `timeout` when available in `psycopg_pool`.
+ - Conninfo `application_name` support for improved DB observability.
+ - Auth error mapping: common authentication failures now raise `AuthError`.
+ - Documentation updates: end-to-end Postgres example (tasks + flow), pool lifecycle guidance, and a full environment variables inventory.
+### Changed
+- CI: Ensure connector extras are installed; spin up Postgres via Docker Compose for integration tests; wait script and DSN exported in the job
+- CI: Add Ruff format check alongside lint; upload coverage to Codecov after tests
+- Postgres connector: initialize `psycopg_pool.ConnectionPool` with `open=True` to avoid deprecation warnings; fall back without `open` for test doubles
+ - Postgres transactions: all operations inside `transaction()` now run on the same connection; nested transactions do not issue nested `BEGIN/COMMIT`.
+ - SQLAlchemy integration: cache default engine/sessionmaker and dispose engine on `close()`.
+ - sslmode handling aligned: include only when explicitly configured (conninfo and SQLAlchemy URL).
+### Fixed
+- COPY streaming compatibility and robust fallbacks for file-like vs iterable inputs in `copy_to`/`copy_from`
+- SQLAlchemy helpers accept DSNs with legacy `postgres://` and apply appropriate connect_args
+- Flow sequencing improvements to ensure setup tasks run before returned concurrent tasks (preserving concurrency semantics)
 - Artifact store FS backend test coverage with `artifact_serializer=json`.
 - Fail-fast cancellation test ensuring pending tasks are cancelled before error propagation.
 - Comprehensive tests for dynamic fan-out graph representation:
 	- Simple dynamic mapping, nested fan-out (2–3 levels), sibling fan-outs merged downstream,
 		and multiple consumers sharing the same fan-out.
 - `AGENT_INSTRUCTIONS.md`: a stricter, end-to-end guide tailored for automated agents contributing to this repo (one-scope PRs, docs/README/changelog updates, 100% coverage for new code, pre-commit, and CI parity commands).
+
+ - Ruff lint improvements in SQLAlchemy session helper (use `contextlib.suppress`).
 
 ### Changed
 - FileSystemArtifactStore no longer keeps duplicate in-memory copies; writes/reads directly to disk, reducing memory footprint.

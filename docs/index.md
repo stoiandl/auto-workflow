@@ -32,9 +32,14 @@ Use the navigation to explore topics or start with the [Quickstart](quickstart.m
 | Secrets providers (env, static mapping, dummy vault) | ✅ |
 | CLI (run/describe/list) | ✅ |
 | Benchmark harness (internal) | ✅ |
+| Connectors (Postgres, SQLAlchemy helpers) | ✅ |
 
 ## Roadmap Highlights
 See [Extensibility](extensibility.md) for upcoming work (OpenTelemetry exporter, advanced secrets, UI, packaging).
 
 ## Getting Help
 If something is unclear or missing, open an issue with a minimal reproducible example.
+
+Useful links:
+- Connectors overview and examples: [Connectors](connectors.md)
+- Local Postgres testing via Docker Compose: [Testing](testing.md)

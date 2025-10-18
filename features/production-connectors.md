@@ -1,6 +1,6 @@
 # Feature: Production‑grade Connectors (Postgres, S3, ADLS2)
 
-Status: Draft (design + implementation plan)
+Status: In progress (Postgres: implemented and tested; S3/ADLS2: pending)
 Owner: TBD
 Target version: LATEST_UNRELEASED_VERSION
 
@@ -390,9 +390,12 @@ Runtime behavior:
   - Update docs: this feature doc; stub pages under `docs/` (later PR) with “coming soon”.
 
 2) Postgres (first)
-  - Implement psycopg3 pool client; query/execute, copy_to/from, transaction context, statement timeout.
-  - Error classification (e.g., deadlock, serialization, connection reset).
-  - Unit tests (mocks) + optional integration against local Docker (skipped by default).
+  - [x] Implement psycopg3 pool client; query/execute, transaction context, statement timeout.
+  - [x] Add streaming iteration (query_iter) for large result sets.
+  - [x] Error classification (timeouts, deadlock/serialization as transient, connection reset).
+  - [x] Optional ORM helpers (SQLAlchemy engine/session/reflection) behind extra.
+  - [x] Registry lazy import and re-registration for factory discovery.
+  - [x] Unit tests (hermetic, mocks; no network) and docs updated; coverage ≥ 90%.
 
 3) S3
   - Implement sync client via boto3; basic ops: get/put/list/delete, multipart, streaming.

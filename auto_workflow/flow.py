@@ -49,7 +49,45 @@ class Flow:
             with BuildContext() as bctx:
                 structure = self.build_fn(*args, **kwargs)
                 dynamic_roots = list(bctx.dynamic_fanouts)
-            invocations = collect_invocations(structure)
+                # Collect all task invocations registered during build
+                invocations = list(bctx.invocations.values())
+                # Preserve user intent: enforce build-order sequencing for side-effect tasks
+                # while keeping tasks included in the returned structure concurrent.
+                from . import build as _build
+
+                returned = [
+                    i
+                    for i in _build.iter_invocations(structure)
+                    if isinstance(i, _build.TaskInvocation)
+                ]
+                returned_set = {i.name for i in returned}
+                ordered = invocations  # already in registration (build) order
+                # Find first returned invocation in build order
+                first_ret_idx = next(
+                    (idx for idx, inv in enumerate(ordered) if inv.name in returned_set),
+                    None,
+                )
+                if first_ret_idx is not None and first_ret_idx > 0:
+                    prefix = [
+                        inv for inv in ordered[:first_ret_idx] if inv.name not in returned_set
+                    ]
+                    # Chain only the non-returned prefix invocations sequentially
+                    if len(prefix) > 1:
+                        for prev, curr in zip(prefix, prefix[1:], strict=False):
+                            if not curr.upstream:
+                                curr.upstream.add(prev.name)
+                    # Ensure all returned nodes depend on the last of the non-returned prefix
+                    if prefix:
+                        last_prefix = prefix[-1].name
+                        # Apply to the canonical invocations list to avoid any aliasing pitfalls
+                        for inv in ordered:
+                            if inv.name in returned_set and not inv.upstream:
+                                inv.upstream.add(last_prefix)
+                    # If there are preceding non-returned tasks and the first returned
+                    # task has no upstreams, chain it to the last non-returned task.
+                    non_returned = [i for i in ordered if i.name not in returned_set]
+                    if returned and non_returned and not returned[0].upstream:
+                        returned[0].upstream.add(non_returned[-1].name)
         if not invocations:
             # trivial, return original structure (no tasks used)
             emit("flow_completed", {"flow": self.name, "run_id": ctx.run_id, "tasks": 0})
