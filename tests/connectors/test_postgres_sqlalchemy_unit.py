@@ -40,6 +40,9 @@ def inject_sqlalchemy_modules(monkeypatch, collector: dict):
             collector["connect_args"] = connect_args or {}
             collector["engine_kwargs"] = kwargs
 
+        def dispose(self):
+            collector["disposed"] = True
+
     class DummyMeta:
         def __init__(self):
             self._reflected = False
@@ -84,14 +87,24 @@ def test_sqlalchemy_engine_and_session(monkeypatch):
     inject_sqlalchemy_modules(monkeypatch, collector)
 
     c = get("postgres")
-    _ = c.sqlalchemy_engine()
+    e1 = c.sqlalchemy_engine()
     assert "postgresql+psycopg://" in collector["engine_url"]
-    _ = c.sqlalchemy_sessionmaker()
+    sm1 = c.sqlalchemy_sessionmaker()
     # sessionmaker returns a callable S()
     sess_cm = c.sqlalchemy_session()
     with sess_cm as s:
         assert s is not None
     assert collector.get("closed") is True
+
+    # Caching assertions (default engine/sessionmaker should be reused)
+    e2 = c.sqlalchemy_engine()
+    assert e1 is e2
+    sm2 = c.sqlalchemy_sessionmaker()
+    assert type(sm1) is type(sm2)
+
+    # Close should dispose engine
+    c.close()
+    assert collector.get("disposed") is True
 
 
 def test_sqlalchemy_reflect(monkeypatch):

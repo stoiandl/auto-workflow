@@ -6,13 +6,14 @@ when attempting to create a client. No heavy imports at module import time.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
 from .base import BaseConnector
-from .exceptions import PermanentError, TimeoutError, TransientError
+from .exceptions import AuthError, PermanentError, TimeoutError, TransientError
 from .registry import get as _get, register as _register
 
 
@@ -44,6 +45,11 @@ def _ensure_sqlalchemy():  # pragma: no cover - exercised via mocked unit tests
 class PostgresClient(BaseConnector):
     cfg: dict[str, Any] | None = None
     _pool: Any | None = None
+    # per-thread transaction connection stack
+    _tls: Any | None = None
+    # Cached SQLAlchemy artifacts (default parameters only)
+    _sa_engine: Any | None = None
+    _sa_sessionmaker: Any | None = None
 
     def open(self) -> None:
         if self._pool is not None:
@@ -54,11 +60,20 @@ class PostgresClient(BaseConnector):
         conninfo = self._conninfo()
         # Prefer explicit open parameter to avoid deprecation warnings in real psycopg_pool,
         # but gracefully handle unit-test doubles that don't accept it.
+        # Optional pool tuning
+        pool_kwargs: dict[str, Any] = {}
+        for k in ("min_size", "max_size", "timeout"):
+            v = (self.cfg or {}).get(k)
+            if v is not None:
+                pool_kwargs[k] = v
         try:
-            self._pool = psycopg_pool.ConnectionPool(conninfo, open=True)
+            self._pool = psycopg_pool.ConnectionPool(conninfo, open=True, **pool_kwargs)
         except TypeError:
-            # Fallback for shims that don't support the 'open' kwarg
-            self._pool = psycopg_pool.ConnectionPool(conninfo)
+            # Fallback for shims that don't support some kwargs
+            try:
+                self._pool = psycopg_pool.ConnectionPool(conninfo, **pool_kwargs)
+            except TypeError:
+                self._pool = psycopg_pool.ConnectionPool(conninfo)
         self._closed = False
 
     def close(self) -> None:
@@ -66,6 +81,14 @@ class PostgresClient(BaseConnector):
             with suppress(Exception):  # pragma: no cover - best effort
                 self._pool.close()
         self._pool = None
+        # Dispose cached SQLAlchemy engine if present
+        if self._sa_engine is not None:
+            with suppress(Exception):  # pragma: no cover - best effort
+                dispose = getattr(self._sa_engine, "dispose", None)
+                if callable(dispose):
+                    dispose()
+        self._sa_engine = None
+        self._sa_sessionmaker = None
         self._closed = True
 
     def _conninfo(self) -> str:
@@ -78,7 +101,8 @@ class PostgresClient(BaseConnector):
         db = cfg.get("database") or cfg.get("dbname")
         user = cfg.get("user")
         password = cfg.get("password")
-        sslmode = cfg.get("sslmode", "require")
+        sslmode = cfg.get("sslmode")
+        app_name = cfg.get("application_name")
         # If minimal fields are not provided, return an empty conninfo string.
         # This keeps the client lenient for unit tests with dummy pools and allows
         # environment-based defaults when used in real deployments.
@@ -89,10 +113,13 @@ class PostgresClient(BaseConnector):
             f"port={port}",
             f"dbname={db}",
             f"user={user}",
-            f"sslmode={sslmode}",
         ]
         if password:
             parts.append(f"password={password}")
+        if sslmode:
+            parts.append(f"sslmode={sslmode}")
+        if app_name:
+            parts.append(f"application_name={app_name}")
         return " ".join(parts)
 
     @contextmanager
@@ -101,6 +128,14 @@ class PostgresClient(BaseConnector):
         if self._pool is None:
             self.open()
         assert self._pool is not None
+        # If inside a transaction, reuse the active connection
+        tx_conn = self._current_tx_conn()
+        if tx_conn is not None:
+            # Best-effort row factory setup
+            with suppress(Exception):
+                tx_conn.row_factory = psycopg.rows.dict_row  # type: ignore[attr-defined]
+            yield tx_conn
+            return
         with self._pool.connection() as conn:
             # Return dict rows by default
             with suppress(Exception):
@@ -167,19 +202,35 @@ class PostgresClient(BaseConnector):
             url = f"postgresql+psycopg://{auth}@{host or 'localhost'}:{port}/{db}"
             if sslmode:
                 url += f"?sslmode={quote_plus(str(sslmode))}"
-        # Default to future mode for SA 2.0 style
+        # Default to future mode for SA 2.0 style (treat as cacheable default)
         engine_kwargs.setdefault("future", True)
         params = dict(engine_kwargs)
         if connect_args:
             params["connect_args"] = connect_args
-        return sqlalchemy.create_engine(url, **params)
+        # Determine if this is the default engine configuration we should cache
+        is_default = (not connect_args) and (
+            not engine_kwargs
+            or (len(engine_kwargs) == 1 and engine_kwargs.get("future", True) is True)
+        )
+        if is_default and self._sa_engine is not None:
+            return self._sa_engine
+        eng = sqlalchemy.create_engine(url, **params)
+        if is_default:
+            self._sa_engine = eng
+        return eng
 
     def sqlalchemy_sessionmaker(self, **session_kwargs: Any) -> Any:
         sqlalchemy, sa_sessionmaker = _ensure_sqlalchemy()
         engine = self.sqlalchemy_engine()
         # Expire on commit true by default aligns with SA defaults
         session_kwargs.setdefault("expire_on_commit", True)
-        return sa_sessionmaker(bind=engine, **session_kwargs)
+        # Cache only default sessionmaker (no custom kwargs beyond default)
+        if session_kwargs == {"expire_on_commit": True} and self._sa_sessionmaker is not None:
+            return self._sa_sessionmaker
+        sm = sa_sessionmaker(bind=engine, **session_kwargs)
+        if session_kwargs == {"expire_on_commit": True}:
+            self._sa_sessionmaker = sm
+        return sm
 
     @contextmanager
     def sqlalchemy_session(self, **session_kwargs: Any) -> Iterator[Any]:
@@ -242,6 +293,25 @@ class PostgresClient(BaseConnector):
             except Exception as e:  # pragma: no cover - mapped by tests via mocks
                 _raise_mapped(e)
                 raise  # unreachable
+
+    def query_one(
+        self, sql: str, params: tuple | dict | None = None, *, timeout: float | None = None
+    ) -> dict[str, Any] | None:
+        """Return first row as a dict or None if no row."""
+        row = self.query(sql, params, fetch="one", timeout=timeout)  # type: ignore[return-value]
+        return row or None
+
+    def query_value(
+        self, sql: str, params: tuple | dict | None = None, *, timeout: float | None = None
+    ) -> Any | None:
+        """Return the first column of the first row, or None if no row."""
+        row = self.query(sql, params, fetch="one", timeout=timeout)  # type: ignore[return-value]
+        if not row:
+            return None
+        try:
+            return next(iter(row.values()))
+        except Exception:
+            return None
 
     def execute(
         self, sql: str, params: tuple | dict | None = None, *, timeout: float | None = None
@@ -396,9 +466,27 @@ class PostgresClient(BaseConnector):
     ):
         with self._op_span("postgres.transaction", isolation=isolation, readonly=readonly):
             try:
-                with self.connection() as conn:
-                    # configure tx; keep simple for now
-                    conn.execute("BEGIN")
+                # Outer-most transaction acquires a connection from the pool
+                if self._pool is None:
+                    self.open()
+                assert self._pool is not None
+
+                if self._in_tx():
+                    # Nested transaction: do not issue BEGIN/COMMIT; rely on outer.
+                    try:
+                        yield self
+                    finally:
+                        pass
+                    return
+
+                # Acquire and pin connection for the duration of the transaction
+                with self._pool.connection() as conn:
+                    self._tx_push(conn)
+                    # Issue BEGIN with options
+                    begin_sql = _begin_sql(
+                        isolation=isolation, readonly=readonly, deferrable=deferrable
+                    )
+                    conn.execute(begin_sql)
                     try:
                         yield self
                     except Exception:
@@ -406,9 +494,38 @@ class PostgresClient(BaseConnector):
                         raise
                     else:
                         conn.execute("COMMIT")
+                    finally:
+                        self._tx_pop()
             except Exception as e:  # pragma: no cover
                 _raise_mapped(e)
                 raise
+
+    # --- internal helpers for transaction state ---
+    def _get_tls(self) -> Any:
+        if self._tls is None:
+            self._tls = threading.local()
+        return self._tls
+
+    def _tx_stack(self) -> list[Any]:
+        tls = self._get_tls()
+        if not hasattr(tls, "tx_stack"):
+            tls.tx_stack = []  # type: ignore[attr-defined]
+        return tls.tx_stack  # type: ignore[return-value]
+
+    def _in_tx(self) -> bool:
+        return bool(self._tx_stack())
+
+    def _current_tx_conn(self) -> Any | None:
+        stk = self._tx_stack()
+        return stk[-1] if stk else None
+
+    def _tx_push(self, conn: Any) -> None:
+        self._tx_stack().append(conn)
+
+    def _tx_pop(self) -> None:
+        stk = self._tx_stack()
+        if stk:
+            stk.pop()
 
 
 def _apply_statement_timeout(conn: Any, timeout_s: float) -> None:
@@ -443,7 +560,33 @@ def _raise_mapped(e: Exception) -> None:
         )
     ):
         raise TransientError("transient postgres error") from e
+    if any(
+        s in msg
+        for s in (
+            "password authentication failed",
+            "pg_hba.conf",
+            "sasl authentication failed",
+            "no pg_hba.conf entry",
+            "authentication failed",
+        )
+    ):
+        raise AuthError("postgres authentication failed") from e
     raise PermanentError("postgres operation failed") from e
+
+
+def _begin_sql(*, isolation: str, readonly: bool, deferrable: bool) -> str:
+    iso_map = {
+        "read_committed": "READ COMMITTED",
+        "repeatable_read": "REPEATABLE READ",
+        "serializable": "SERIALIZABLE",
+    }
+    iso_key = str(isolation or "read_committed").lower().strip()
+    iso_clause = iso_map.get(iso_key, "READ COMMITTED")
+    parts = ["BEGIN", f"ISOLATION LEVEL {iso_clause}"]
+    parts.append("READ ONLY" if readonly else "READ WRITE")
+    if deferrable:
+        parts.append("DEFERRABLE")
+    return " ".join(parts)
 
 
 def _factory(profile: str, cfg: dict[str, Any]):

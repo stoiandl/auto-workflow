@@ -85,6 +85,15 @@ def test_query_and_execute(monkeypatch):
     assert rc == 3
 
 
+def test_query_one_and_value(monkeypatch):
+    inject_psycopg_modules(monkeypatch)
+    c = get("postgres")
+    one = c.query_one("select 1")
+    assert one is not None and one.get("x") == 1
+    val = c.query_value("select 1")
+    assert val == 1
+
+
 def test_transaction_context(monkeypatch):
     inject_psycopg_modules(monkeypatch)
     c = get("postgres")

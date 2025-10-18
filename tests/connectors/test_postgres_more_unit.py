@@ -14,9 +14,11 @@ class TxConn:
     def __init__(self):
         self._tx: list[str] = []
         self.row_factory = None
+        self.executed: list[tuple[str, tuple | dict | None]] = []
 
     def execute(self, sql, *_, **__):
         self._tx.append(sql)
+        self.executed.append((sql, None))
 
     @contextmanager
     def cursor(self):
@@ -33,6 +35,7 @@ class TxCursor:
     def execute(self, sql, params=None):
         self.sql = sql
         self.params = params
+        self.conn.executed.append((sql, params))
 
     def fetchone(self):
         return {"x": 1}
@@ -184,12 +187,29 @@ def test_error_mapping_permanent(monkeypatch):
     assert "failed" in str(ei.value).lower()
 
 
+def test_error_mapping_auth(monkeypatch):
+    class PoolBoom:
+        @contextmanager
+        def connection(self):
+            raise RuntimeError("password authentication failed for user 'x'")
+            yield  # pragma: no cover
+
+    inject_psycopg(monkeypatch, PoolBoom())
+    c = get("postgres")
+    with pytest.raises(Exception) as ei:
+        c.query("select 1")
+    assert "authentication" in str(ei.value).lower()
+
+
 def test_transaction_rollback_and_commit(monkeypatch):
     collector: dict = {}
     pool = PoolCapturing(collector)
     inject_psycopg(monkeypatch, pool)
     c = get("postgres")
     with pytest.raises(RuntimeError), c.transaction():
+        # ensure statements run on same connection
+        with c.connection() as conn_inside:
+            conn_inside.execute("INSERT INTO t(v) VALUES (1)")
         raise RuntimeError("fail inside")
     # Expect BEGIN then ROLLBACK
     tx = collector["connections"][0]._tx
@@ -201,9 +221,51 @@ def test_transaction_rollback_and_commit(monkeypatch):
     inject_psycopg(monkeypatch, pool)
     c2 = get("postgres")
     with c2.transaction():
-        pass
+        # nested statement
+        c2.execute("UPDATE t SET v=2 WHERE 1=0")
     tx2 = collector["connections"][0]._tx
     assert any("COMMIT" in s.upper() for s in tx2)
+
+
+def test_transaction_binds_same_connection(monkeypatch):
+    collector: dict = {}
+    pool = PoolCapturing(collector)
+    inject_psycopg(monkeypatch, pool)
+    c = get("postgres")
+    with c.transaction():
+        # both execute and query should use same TxConn instance
+        c.execute("UPDATE x SET v=1")
+        _ = c.query("SELECT 1 AS x", fetch="one")
+    conns = collector.get("connections", [])
+    assert len(conns) == 1
+
+
+def test_nested_transactions_do_not_double_begin(monkeypatch):
+    collector: dict = {}
+    pool = PoolCapturing(collector)
+    inject_psycopg(monkeypatch, pool)
+    c = get("postgres")
+    with c.transaction(), c.transaction():
+        c.execute("UPDATE t SET v=3 WHERE 1=0")
+    tx = collector["connections"][0]._tx
+    # Only one BEGIN at outermost
+    begins = [s for s in tx if s.upper().startswith("BEGIN")]
+    assert len(begins) == 1
+
+
+def test_transaction_begin_options_emitted(monkeypatch):
+    collector: dict = {}
+    pool = PoolCapturing(collector)
+    inject_psycopg(monkeypatch, pool)
+    c = get("postgres")
+    with c.transaction(isolation="serializable", readonly=True, deferrable=True):
+        c.execute("SELECT 1")
+    tx = collector["connections"][0]._tx
+    assert tx, "expected tx statements"
+    begin = tx[0]
+    up = begin.upper()
+    assert "BEGIN" in up and "ISOLATION LEVEL SERIALIZABLE" in up
+    assert "READ ONLY" in up and "DEFERRABLE" in up
 
 
 def test_registry_caching_and_eviction(monkeypatch):
