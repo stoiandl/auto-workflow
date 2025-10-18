@@ -6,6 +6,9 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 
 ## [0.1.2] - Unreleased
 ### Added
+- Connectors scaffolding: `auto_workflow.connectors` package with base contracts, exceptions,
+  registry, config/env overlay utilities, and unit tests. No external deps yet; concrete
+  providers (Postgres/S3/ADLS2) will follow behind optional extras.
 - CLI validation: `--failure-policy` choices enforced; friendly errors for bad module/object paths; reject non-positive `--max-concurrency`.
 - Artifact store FS backend test coverage with `artifact_serializer=json`.
 - Fail-fast cancellation test ensuring pending tasks are cancelled before error propagation.

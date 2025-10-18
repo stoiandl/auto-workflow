@@ -38,6 +38,7 @@ nav:
       - Middleware & Events: middleware-events.md
   - CLI: cli.md
   - Extensibility: extensibility.md
+  - Connectors: connectors.md
   - Examples: examples.md
   - API Reference: api-reference.md
 markdown_extensions:
