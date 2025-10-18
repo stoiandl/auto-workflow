@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
-set -euo pipefail
+# Use POSIX sh; avoid bash-specific 'pipefail'
+set -eu
 
 HOST=${1:-127.0.0.1}
 PORT=${2:-5432}
