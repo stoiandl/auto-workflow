@@ -38,9 +38,15 @@ nav:
       - Middleware & Events: middleware-events.md
   - CLI: cli.md
   - Extensibility: extensibility.md
-  - Connectors: connectors.md
+  - Connectors:
+      - Overview: connectors.md
+      - Postgres: connectors/postgres.md
+      - ADLS2: connectors/adls2.md
   - Examples:
-      - Examples: examples.md
+      - Overview: examples.md
+      - ADLS2 CSV Roundtrip: examples/adls2_csv_roundtrip.md
+      - Postgres Fan-Out: examples/postgres_fanout.md
+      - General: examples/general_examples.md
       - Testing: testing.md
   - API Reference: api-reference.md
 markdown_extensions:
