@@ -1,6 +1,6 @@
 # Feature: Production‑grade Connectors (Postgres, S3, ADLS2)
 
-Status: In progress (Postgres: implemented and tested; S3/ADLS2: pending)
+Status: In progress (Postgres: implemented and tested; ADLS2: implemented behind extras; S3: pending)
 Owner: TBD
 Target version: LATEST_UNRELEASED_VERSION
 
@@ -152,6 +152,8 @@ Class: `ADLS2Client`
 - Delete & directories:
   - `delete_path(container: str, path: str, *, recursive: bool = False, timeout: float | None = None) -> None`
   - `make_dirs(container: str, path: str, *, exist_ok: bool = True, timeout: float | None = None) -> None`
+   - Containers:
+     - `create_container(container: str, *, exist_ok: bool = True, timeout: float | None = None) -> None`
 - Errors: `NotFoundError`, `AuthError`, `TimeoutError`, `TransientError` (server busy), `PermanentError`.
  - Native access:
    - `datalake_service_client() -> azure.storage.filedatalake.DataLakeServiceClient`
@@ -205,14 +207,15 @@ connectors:
   adls2:
     lake:
       account_url: "https://<account>.dfs.core.windows.net"
-      credential: "secret://env/AZURE_STORAGE_SAS"  # or key/client secret
+      use_default_credentials: true
+      # or: connection_string = "DefaultEndpointsProtocol=..."
       retries:
         attempts: 5
 ```
 - Profiles are named scopes. Callers can override with explicit parameters.
 
 ### Environment overrides (nested profiles)
-We will support nested overrides via environment variables using a predictable mapping. Precedence: per‑call overrides > env overrides > pyproject > SDK defaults.
+Nested overrides are supported via environment variables with a predictable mapping. Precedence: per‑call overrides > env overrides > pyproject > SDK defaults.
 
 Scheme:
 - Prefix: `AUTO_WORKFLOW_CONNECTORS_`
@@ -242,7 +245,8 @@ Examples:
 - ADLS2:
   - `AUTO_WORKFLOW_CONNECTORS_ADLS2_LAKE__ACCOUNT_URL=https://myacct.dfs.core.windows.net`
   - `AUTO_WORKFLOW_CONNECTORS_ADLS2_LAKE__USE_DEFAULT_CREDENTIALS=true`
-  - `AUTO_WORKFLOW_CONNECTORS_ADLS2_LAKE__CREDENTIAL=secret://env/AZURE_STORAGE_SAS`
+  - `AUTO_WORKFLOW_CONNECTORS_ADLS2_LAKE__CONNECTION_STRING=...` (alternative to account_url)
+  - `AUTO_WORKFLOW_CONNECTORS_ADLS2_LAKE__CREDENTIAL=secret://env/AZURE_STORAGE_SAS` (optional explicit credential)
 
 JSON override (highest precedence for a profile):
 - `AUTO_WORKFLOW_CONNECTORS_<NAME>_<PROFILE>__JSON='{"dsn":"...","pool":{"min_size":1}}'`
@@ -319,8 +323,8 @@ Notes:
 
 Note: Current Azure SDKs listed above require Python >= 3.9. This project targets Python 3.12+, so the requirement is satisfied.
 
-### Dependency management & Poetry extras (plan)
-We will expose connector dependencies as Poetry extras so users can install only what they need. We won’t add heavy SDKs to default deps.
+### Dependency management & Poetry extras
+Connector dependencies are exposed as Poetry extras so users can install only what they need. Heavy SDKs are not added to default deps.
 
 Proposed `pyproject.toml` snippets (illustrative):
 
@@ -338,12 +342,13 @@ azure-identity = { version = ">=1.25.1", optional = true }
 connectors-postgres = ["psycopg", "psycopg_pool"]
 connectors-s3 = ["boto3"]
 connectors-adls2 = ["azure-storage-blob", "azure-storage-file-datalake", "azure-identity"]
+connectors-all = ["psycopg", "psycopg_pool", "azure-storage-blob", "azure-storage-file-datalake", "azure-identity", "sqlalchemy"]
 ```
 
 Install commands:
 - Postgres: `poetry install -E connectors-postgres`
-- S3: `poetry install -E connectors-s3`
 - ADLS2: `poetry install -E connectors-adls2`
+- All available: `poetry install -E connectors-all`
 
 Runtime behavior:
 - Connector modules will lazy‑import their SDKs; if extras aren’t installed, an actionable error is raised with guidance to install the right extra.
@@ -353,7 +358,7 @@ Runtime behavior:
 - Tracing: one span per operation with stable names:
   - `connector.postgres.query`, attributes: db.system, db.name, net.peer.name, statement.type, row_count, error.class
   - `connector.s3.get_object`, attributes: aws.bucket, aws.key, size, range, error.class
-  - `connector.adls2.upload_bytes`, attributes: azure.account, container, path, size
+  - `connector.adls2.upload_bytes`, attributes: container, path, size
 - Metrics: counters and histograms via `metrics_provider`:
   - `<connector>.<op>.count`, `<connector>.<op>.errors`, `<connector>.<op>.latency_ms`
 - Events: hook into `logging_middleware`/`events.py` with structured payloads; redact secrets.
@@ -362,6 +367,7 @@ Runtime behavior:
 - Respect per‑call timeout (default from profile config). Use provider‑native timeouts (psycopg `statement_timeout`, boto3 config, Azure retry policies) plus our outer deadline.
 - Retry classification via `classify_error` maps provider errors to `Transient|Permanent|Auth|Timeout`.
 - Integrate with auto_workflow task retry/cancellation: if task is cancelled or deadline exceeded, abort I/O promptly and propagate `TimeoutError`.
+- ADLS2 uses Azure retry policy when available; `retries.attempts` maps to `total_retries`.
 
 ## Resource Lifecycle & Concurrency
 - Registry caches clients/pools by `(name, profile, config hash)` using weakrefs; no global mutation beyond cache entries.
@@ -377,6 +383,7 @@ Runtime behavior:
 - Raise `ConnectorError` subclasses; never leak raw SDK exceptions across public boundary.
 - Attach `cause` in exception chaining; include retryable hint.
 - Map common codes (e.g., Postgres serialization failures) to `TransientError`.
+- ADLS2: map `HttpResponseError` status codes: 401/403 -> Auth, 404 -> NotFound, 408 -> Timeout, 429/5xx -> Transient.
 
 ## Performance
 - Postgres: pooled connections, prepared statement option (later), server‑side cursors for large result sets.

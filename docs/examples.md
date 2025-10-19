@@ -1,3 +1,122 @@
+### ADLS2 CSV roundtrip
+
+End-to-end example: `examples/adls_csv_flow.py`
+
+This flow demonstrates:
+- Ensuring a container exists
+- Creating a folder
+- Writing a small CSV
+- Reading and printing its contents
+- Cleaning up the created resources
+
+Install (one-time):
+
+```bash
+# Install Azure extras (or install all connector extras)
+poetry install -E connectors-adls2
+# or
+poetry install -E connectors-all
+```
+
+Environment (use the profile from the example: ADLS_TEST):
+
+```bash
+# Option A: connection string (recommended when available)
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_ADLS_TEST__CONNECTION_STRING="DefaultEndpointsProtocol=..."
+
+# Option B: account_url + DefaultAzureCredential (AAD-based)
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_ADLS_TEST__ACCOUNT_URL="https://<acct>.dfs.core.windows.net"
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_ADLS_TEST__USE_DEFAULT_CREDENTIALS=true
+
+# Optional tuning
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_ADLS_TEST__RETRIES__ATTEMPTS=5
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_ADLS_TEST__TIMEOUTS__CONNECT_S=2.0
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_ADLS_TEST__TIMEOUTS__OPERATION_S=30.0
+```
+
+Run:
+
+```bash
+# Prefer running inside Poetry's virtual environment
+poetry run python examples/adls_csv_flow.py
+```
+
+Expected output:
+
+```
+CSV rows:
+['id', 'name']
+['1', 'alice']
+['2', 'bob']
+['3', 'cathy']
+Flow returned 4 rows
+```
+
+Code (excerpt):
+
+```python
+from auto_workflow import flow, task
+from auto_workflow.connectors import adls2
+from datetime import UTC, datetime
+import csv, io
+
+@task
+def ensure_container(container: str, profile: str) -> str:
+    with adls2.client(profile=profile) as c:
+        svc = c.datalake_service_client()
+        create = getattr(svc, "create_file_system", None)
+        if callable(create):
+            create(file_system=container)
+        else:
+            _ = c.filesystem_client(container)
+    return container
+
+@task
+def make_folder(container: str, folder: str, profile: str) -> str:
+    with adls2.client(profile=profile) as c:
+        c.make_dirs(container, folder, exist_ok=True)
+    return folder
+
+@task
+def write_csv(container: str, folder: str, profile: str, filename: str = "sample.csv") -> str:
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["id", "name"])
+    for r in [(1, "alice"), (2, "bob"), (3, "cathy")]:
+        w.writerow(r)
+    data = buf.getvalue().encode("utf-8")
+    path = f"{folder.rstrip('/')}/{filename}"
+    with adls2.client(profile=profile) as c:
+        c.upload_bytes(container, path, data, content_type="text/csv", overwrite=True)
+    return path
+
+@task
+def read_csv(container: str, path: str, profile: str) -> list[list[str]]:
+    with adls2.client(profile=profile) as c:
+        data = c.download_bytes(container, path)
+    return list(csv.reader(io.StringIO(data.decode("utf-8"))))
+
+@task
+def cleanup(container: str, folder: str, path: str, profile: str) -> None:
+    with adls2.client(profile=profile) as c:
+        c.delete_path(container, path)
+        c.delete_path(container, folder, recursive=True)
+
+@flow
+def adls_csv_flow(container: str = "demo-container", folder_prefix: str = "incoming", profile: str = "adls_test"):
+    folder = f"{folder_prefix}/{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+    ensured = ensure_container(container, profile)
+    made = make_folder(ensured, folder, profile)
+    path = write_csv(ensured, made, profile)
+    rows = read_csv(ensured, path, profile)
+    cleanup(ensured, made, path, profile)
+    return rows
+```
+
+Troubleshooting:
+- Ensure the Azure SDK extras are installed and you’re running inside the Poetry environment.
+- Verify the environment variables are exported in your shell (printenv) and match the profile used by the example (`ADLS_TEST`).
+- If your identity lacks permissions, switch to a connection string or adjust Azure RBAC/ACLs.
 # Examples
 
 ## Example: ETL Mini-Pipeline

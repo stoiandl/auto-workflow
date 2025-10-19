@@ -47,13 +47,24 @@ class InMemoryResultCache:
             self._store.move_to_end(key)
         # enforce optional LRU bound
         cfg = load_config()
-        max_entries = cfg.get("result_cache_max_entries")
-        if isinstance(max_entries, str) and max_entries.isdigit():
+        max_entries_val = cfg.get("result_cache_max_entries")
+
+        def _to_int(val):
             try:
-                max_entries = int(max_entries)
+                if val is None:
+                    return None
+                return int(str(val).strip())
             except Exception:
-                max_entries = None
-        if isinstance(max_entries, int) and max_entries > 0:
+                return None
+
+        max_entries = _to_int(max_entries_val)
+        if max_entries is None:
+            # Fallback to environment directly if config normalization preserved a string
+            import os
+
+            max_entries = _to_int(os.getenv("AUTO_WORKFLOW_RESULT_CACHE_MAX_ENTRIES"))
+
+        if max_entries is not None and max_entries > 0:
             while len(self._store) > max_entries:
                 try:
                     self._store.popitem(last=False)

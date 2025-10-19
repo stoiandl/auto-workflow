@@ -22,13 +22,27 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
  - Conninfo `application_name` support for improved DB observability.
  - Auth error mapping: common authentication failures now raise `AuthError`.
  - Documentation updates: end-to-end Postgres example (tasks + flow), pool lifecycle guidance, and a full environment variables inventory.
+ - ADLS2 connector (Azure Data Lake Storage Gen2) behind optional extras with:
+ 	- Upload/download bytes and streaming, list paths, exists, delete, and make_dirs
+ 	- Error classification (timeouts, auth failures, not found, transient vs permanent) with HttpResponseError status mapping
+ 	- Lazy imports and clear ImportError guidance for missing extras
+ 	- Registry integration and unit tests with hermetic fakes; mocked integration tests with flows/fan-outs
+ 	- Content type support via Azure Blob ContentSettings in uploads; chunk_size passthrough
+ 	- Example `examples/adls_csv_flow.py` demonstrating container creation, CSV write/read, and cleanup
 ### Changed
-- CI: Ensure connector extras are installed; spin up Postgres via Docker Compose for integration tests; wait script and DSN exported in the job
+- CI: Ensure connector extras are installed (use `connectors-all`); spin up Postgres via Docker Compose for integration tests; wait script and DSN exported in the job
 - CI: Add Ruff format check alongside lint; upload coverage to Codecov after tests
 - Postgres connector: initialize `psycopg_pool.ConnectionPool` with `open=True` to avoid deprecation warnings; fall back without `open` for test doubles
  - Postgres transactions: all operations inside `transaction()` now run on the same connection; nested transactions do not issue nested `BEGIN/COMMIT`.
  - SQLAlchemy integration: cache default engine/sessionmaker and dispose engine on `close()`.
  - sslmode handling aligned: include only when explicitly configured (conninfo and SQLAlchemy URL).
+ - FileSystemArtifactStore no longer keeps duplicate in-memory copies; writes/reads directly to disk, reducing memory footprint.
+ - Scheduler fail-fast path now proactively cancels in-flight tasks before raising, improving determinism.
+ - `Flow.describe()` now models dynamic fan-outs explicitly as barrier nodes (`fanout:{n}`),
+	deduplicates multi-consumers, and propagates transitive dependencies so downstream nodes
+	correctly reference all relevant fan-out barriers.
+ - `Flow.export_dot()` renders fan-out barriers as diamond-shaped nodes labeled `fan_out(task)`
+	and wires `source -> fanout -> consumer`, including fanout-of-fanout chains.
 ### Fixed
 - COPY streaming compatibility and robust fallbacks for file-like vs iterable inputs in `copy_to`/`copy_from`
 - SQLAlchemy helpers accept DSNs with legacy `postgres://` and apply appropriate connect_args
@@ -41,18 +55,8 @@ This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 release
 - `AGENT_INSTRUCTIONS.md`: a stricter, end-to-end guide tailored for automated agents contributing to this repo (one-scope PRs, docs/README/changelog updates, 100% coverage for new code, pre-commit, and CI parity commands).
 
  - Ruff lint improvements in SQLAlchemy session helper (use `contextlib.suppress`).
-
-### Changed
-- FileSystemArtifactStore no longer keeps duplicate in-memory copies; writes/reads directly to disk, reducing memory footprint.
-- Scheduler fail-fast path now proactively cancels in-flight tasks before raising, improving determinism.
-- `Flow.describe()` now models dynamic fan-outs explicitly as barrier nodes (`fanout:{n}`),
-	deduplicates multi-consumers, and propagates transitive dependencies so downstream nodes
-	correctly reference all relevant fan-out barriers.
-- `Flow.export_dot()` renders fan-out barriers as diamond-shaped nodes labeled `fan_out(task)`
-	and wires `source -> fanout -> consumer`, including fanout-of-fanout chains.
-
-### Fixed
-- Incorrect/missing dynamic fan-out edges in `describe()`/`export_dot()` for nested mapping and
+ - ADLS2 example failures addressed by ensuring container creation and aligning UTC usage; example notes added to docs.
+ - Incorrect/missing dynamic fan-out edges in `describe()`/`export_dot()` for nested mapping and
 	multi-branch scenarios; graphs now reflect true execution ordering without duplicate edges.
  - DOT export now suppresses direct edges from original sources when a dynamic `fan_out` barrier
 	 mediates the dependency. Graphs correctly render `source -> fanout -> ... -> consumer` without

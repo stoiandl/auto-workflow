@@ -1,13 +1,15 @@
 # Connectors
 
 The `auto_workflow.connectors` package provides a lightweight registry and base contracts for
-production-grade connectors. Postgres is available today, with S3 and ADLS2 planned next.
+production-grade connectors. Postgres is available today, and ADLS2 (Azure Data Lake Storage Gen2)
+is now available behind optional extras. S3 is planned next.
 
 What’s available now:
 - `auto_workflow.connectors.get(name, profile="default")` — retrieve a connector from the registry
 - Base interfaces (`Connector`, `BaseConnector`) and error hierarchy (`ConnectorError`, etc.)
 - Env/config overlay helpers with secret resolution via `auto_workflow.secrets`
 - Postgres connector (psycopg3 pool-backed) with optional SQLAlchemy helpers
+- ADLS2 connector (Azure Data Lake Storage Gen2) behind optional extras
 
 Install optional extras:
 
@@ -17,6 +19,12 @@ poetry install -E connectors-postgres
 
 # SQLAlchemy helpers (engine/session/reflection)
 poetry install -E connectors-sqlalchemy
+
+# ADLS2 connector runtime (Azure SDK)
+poetry install -E connectors-adls2
+
+# Install all available connector extras (Postgres, SQLAlchemy helpers, ADLS2)
+poetry install -E connectors-all
 ```
 
 Usage (Postgres):
@@ -82,6 +90,80 @@ def demo_flow(profile: str = PROFILE) -> int:
 if __name__ == "__main__":
 	print(demo_flow.run(PROFILE))
 ```
+
+---
+
+ADLS2 usage and configuration
+-----------------------------
+
+Install the ADLS2 extras and configure via env or `pyproject.toml`.
+
+Install:
+
+```bash
+poetry install -E connectors-adls2
+# or install all connector extras
+poetry install -E connectors-all
+```
+
+Quick usage:
+
+```python
+from auto_workflow.connectors import adls2
+
+with adls2.client("default") as fs:
+	# Ensure container exists (convenience helper)
+	fs.create_container("bronze", exist_ok=True)
+	fs.make_dirs("bronze", "events/2025-10-19", exist_ok=True)
+		fs.upload_bytes(
+				container="bronze",
+				path="events/2025-10-19/sample.csv",
+				data=b"id,name\n1,alice\n",
+				content_type="text/csv",
+				overwrite=True,
+		)
+		rows = list(fs.list_paths("bronze", prefix="events/2025-10-19/"))
+```
+
+Auth & connection options (pick one):
+
+- Connection string (recommended when available):
+	- Env: `AUTO_WORKFLOW_CONNECTORS_ADLS2_<PROFILE>__CONNECTION_STRING="..."`
+	- Aliases: `__CONN_STR`, `__DSN`
+- Account URL + DefaultAzureCredential (AAD-based):
+	- Env: `AUTO_WORKFLOW_CONNECTORS_ADLS2_<PROFILE>__ACCOUNT_URL="https://<acct>.dfs.core.windows.net"`
+	- Env: `AUTO_WORKFLOW_CONNECTORS_ADLS2_<PROFILE>__USE_DEFAULT_CREDENTIALS=true`
+- Custom credential object (advanced):
+	- Provide via `pyproject.toml` or JSON overlay and pass through as `credential`.
+
+Environment overrides (ADLS2):
+
+Prefix: `AUTO_WORKFLOW_CONNECTORS_ADLS2_<PROFILE>__`
+
+Examples (DEFAULT profile):
+
+```bash
+# Option A: single connection string
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__CONNECTION_STRING="DefaultEndpointsProtocol=..."
+
+# Option B: account_url + DefaultAzureCredential
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__ACCOUNT_URL="https://myacct.dfs.core.windows.net"
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__USE_DEFAULT_CREDENTIALS=true
+
+# Optional tuning
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__RETRIES__ATTEMPTS=5
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__TIMEOUTS__CONNECT_S=2.0
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__TIMEOUTS__OPERATION_S=30.0
+
+# High-precedence JSON overlay
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__JSON='{"connection_string":"..."}'
+```
+
+Notes:
+- The client lazily imports Azure SDKs. If extras aren’t installed, an ImportError suggests `poetry install -E connectors-adls2`.
+- `content_type` on upload is applied using Azure Blob `ContentSettings` under the hood.
+- Errors are mapped to project exceptions: `AuthError`, `NotFoundError`, `TimeoutError`, `TransientError`, `PermanentError`.
+- See `examples/adls_csv_flow.py` for a complete CSV roundtrip flow (container creation, folder, write/read, cleanup).
 Convenience helpers
 
 - `query_one(sql, params=None, timeout=None) -> dict | None`: returns the first row or None.
