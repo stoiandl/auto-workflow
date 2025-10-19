@@ -46,7 +46,7 @@ Map Azure SDK exceptions to `ConnectorError` hierarchy:
 - `azure.core.exceptions.ServiceRequestError`, `ReadTimeoutError` -> `TimeoutError`
 - `azure.core.exceptions.ClientAuthenticationError` -> `AuthError`
 - `azure.core.exceptions.ResourceNotFoundError` -> `NotFoundError`
-- `azure.core.exceptions.ServiceResponseError`, `ServiceUnavailableError`, 5xx -> `TransientError`
+- `azure.core.exceptions.ServiceResponseError`, `HttpResponseError` (5xx) -> `TransientError`
 - Others -> `PermanentError`
 Include original exception via exception chaining.
 

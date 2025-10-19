@@ -35,6 +35,9 @@ cloudpickle = ">=3.0.0,<4.0.0"
 psycopg = { version = "^3.2.10", optional = true, extras = ["binary"] }
 psycopg_pool = { version = "^3.2.6", optional = true }
 SQLAlchemy = { version = "^2.0.44", optional = true }
+azure-storage-blob = { version = "^12.23.1", optional = true }
+azure-storage-file-datalake = { version = "^12.15.0", optional = true }
+azure-identity = { version = "^1.18.0", optional = true }
 
 # Optional: define optional dev dependency groups (PEP 735 draft style). If your tooling
 # doesn't yet support this, you can ignore. Pre-commit pins hook versions, so adding
@@ -143,3 +146,19 @@ auto-workflow = "auto_workflow.cli:main"
 connectors-postgres = ["psycopg", "psycopg_pool"]
 # Install with: poetry install -E connectors-sqlalchemy
 connectors-sqlalchemy = ["SQLAlchemy"]
+# Install with: poetry install -E connectors-adls2
+connectors-adls2 = [
+    "azure-storage-blob",
+    "azure-storage-file-datalake",
+    "azure-identity",
+]
+
+# Install with: poetry install -E connectors-all
+connectors-all = [
+    "psycopg",
+    "psycopg_pool",
+    "SQLAlchemy",
+    "azure-storage-blob",
+    "azure-storage-file-datalake",
+    "azure-identity",
+]

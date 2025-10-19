@@ -32,7 +32,7 @@ Use the navigation to explore topics or start with the [Quickstart](quickstart.m
 | Secrets providers (env, static mapping, dummy vault) | ✅ |
 | CLI (run/describe/list) | ✅ |
 | Benchmark harness (internal) | ✅ |
-| Connectors (Postgres, SQLAlchemy helpers) | ✅ |
+| Connectors (Postgres, SQLAlchemy helpers, ADLS2) | ✅ |
 
 ## Roadmap Highlights
 See [Extensibility](extensibility.md) for upcoming work (OpenTelemetry exporter, advanced secrets, UI, packaging).
@@ -43,3 +43,4 @@ If something is unclear or missing, open an issue with a minimal reproducible ex
 Useful links:
 - Connectors overview and examples: [Connectors](connectors.md)
 - Local Postgres testing via Docker Compose: [Testing](testing.md)
+ - ADLS2 CSV example: see [Examples](examples.md)

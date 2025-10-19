@@ -36,10 +36,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-poetry-
 
-      - name: Install deps
+      - name: Install deps (with all connectors)
         run: |
-          # Install project with dev deps and required extras for Postgres tests
-          poetry install --no-interaction --with dev -E connectors-postgres -E connectors-sqlalchemy
+          # Install project with dev deps and all optional connectors to avoid skipped tests
+          poetry install --no-interaction --with dev -E connectors-all
 
       - name: Make wait script executable
         run: chmod +x test_helpers/wait-for-postgres.sh

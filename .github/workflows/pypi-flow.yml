@@ -45,7 +45,7 @@ jobs:
 
       - name: Install dependencies (poetry)
         run: |
-          poetry install --with dev --no-interaction --no-ansi -E connectors-postgres -E connectors-sqlalchemy
+          poetry install --with dev --no-interaction --no-ansi -E connectors-all
 
       - name: Lint (ruff)
         run: |

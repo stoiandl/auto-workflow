@@ -279,7 +279,7 @@ See docs/configuration.md for full details.
 
 
 ## Connectors
-Production-grade connectors are available as optional extras. The first shipped connector is Postgres (psycopg3 pool-backed), with optional SQLAlchemy helpers.
+Production-grade connectors are available as optional extras. Today we ship Postgres (psycopg3 pool-backed) and ADLS2 (Azure Data Lake Storage Gen2). SQLAlchemy helpers for Postgres are optional.
 
 Install:
 
@@ -297,6 +297,10 @@ pip install "auto-workflow[connectors-sqlalchemy]"
 poetry add auto-workflow -E connectors-postgres
 # Optional: for SQLAlchemy helpers
 poetry add auto-workflow -E connectors-sqlalchemy
+# ADLS2 (Azure SDK)
+poetry add auto-workflow -E connectors-adls2
+# Or install all available connector extras
+poetry add auto-workflow -E connectors-all
 ```
 
 Usage (Postgres):
@@ -325,6 +329,46 @@ with Session(engine) as s:
 See the Connectors page in the docs for more examples, including streaming iteration and reflection: https://stoiandl.github.io/auto-workflow/connectors/
 
 For local testing with Postgres via Docker Compose and running the full suite, see `docs/testing.md`.
+
+### ADLS2 (Azure Data Lake Storage Gen2)
+
+Install:
+
+```bash
+pip install "auto-workflow[connectors-adls2]"
+# or for Poetry
+poetry add auto-workflow -E connectors-adls2
+```
+
+Quick example:
+
+```python
+from auto_workflow.connectors import adls2
+
+with adls2.client("default") as fs:
+	fs.make_dirs("bronze", "incoming/demo", exist_ok=True)
+	fs.upload_bytes(
+		container="bronze",
+		path="incoming/demo/sample.csv",
+		data=b"id,name\n1,alice\n2,bob\n",
+		content_type="text/csv",
+	)
+	data = fs.download_bytes("bronze", "incoming/demo/sample.csv")
+	print(data.decode())
+```
+
+Environment config (DEFAULT profile):
+
+```bash
+# Option A: connection string
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__CONNECTION_STRING="DefaultEndpointsProtocol=..."
+
+# Option B: account_url + DefaultAzureCredential
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__ACCOUNT_URL="https://<acct>.dfs.core.windows.net"
+export AUTO_WORKFLOW_CONNECTORS_ADLS2_DEFAULT__USE_DEFAULT_CREDENTIALS=true
+```
+
+End-to-end example flow: `examples/adls_csv_flow.py`.
 
 
 ## Observability (Logging, Metrics, Tracing)
