@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 This project follows Keep a Changelog and Semantic Versioning. Pre‑1.0 releases may contain breaking changes in minor versions.
 
-## [0.1.2] - Unreleased
+## [0.1.2] - 2025-10-19
 ### Added
 - Connectors: Postgres client (psycopg3 pool-backed) behind optional extras with:
 	- Query/execute/executemany, transaction context, statement timeouts, streaming via `query_iter`
